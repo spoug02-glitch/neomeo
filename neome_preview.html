@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>너머 — 외출 준비 앱</title>
+  <style>
+    /* ── Design Tokens ── */
+    :root {
+      --primary: #FF4500;
+      --primary-light: rgba(255,69,0,0.08);
+      --bg: #F8FAFC;
+      --surface: #ffffff;
+      --text-main: #191F28;
+      --text-sub: #8B95A1;
+      --text-hint: #ADB5BD;
+      --border: #E5E8EB;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+      background: linear-gradient(135deg, #f0f4ff 0%, #fce8e0 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    /* ── Page Header ── */
+    .page-header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .page-header h1 { font-size: 32px; font-weight: 800; color: var(--text-main); letter-spacing: -1px; }
+    .page-header p { font-size: 15px; color: var(--text-sub); margin-top: 6px; }
+
+    /* ── Phone Frame ── */
+    .phone-wrapper {
+      display: flex;
+      gap: 40px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .phone {
+      width: 375px;
+      height: 780px;
+      background: var(--bg);
+      border-radius: 48px;
+      border: 10px solid #1a1a2e;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.3), inset 0 0 0 2px #333;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Notch */
+    .phone::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%; transform: translateX(-50%);
+      width: 120px; height: 28px;
+      background: #1a1a2e;
+      border-radius: 0 0 20px 20px;
+      z-index: 100;
+    }
+
+    /* ── Screen Switching ── */
+    .screen { display: none; flex-direction: column; height: 100%; }
+    .screen.active { display: flex; }
+
+    /* ── Scrollable Body ── */
+    .screen-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 40px 20px 20px;
+      scrollbar-width: none;
+    }
+    .screen-body::-webkit-scrollbar { display: none; }
+
+    /* ── Bottom Nav ── */
+    .bottom-nav {
+      display: flex;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      padding: 8px 0 12px;
+    }
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      padding: 4px 0;
+      color: var(--text-sub);
+      font-size: 11px;
+      font-weight: 500;
+      transition: color 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .nav-item.active { color: var(--text-main); font-weight: 700; }
+    .nav-icon { font-size: 22px; line-height: 1; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    /* ── HOME SCREEN ── */
+    .home-header { text-align: center; padding: 12px 0 8px; }
+    .window-logo {
+      width: 48px; height: 48px;
+      border: 4px solid var(--primary);
+      border-radius: 8px;
+      position: relative;
+      margin: 0 auto 14px;
+    }
+    .window-logo::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: 0; right: 0;
+      height: 4px; background: var(--primary);
+      transform: translateY(-50%);
+    }
+    .window-logo::after {
+      content: '';
+      position: absolute;
+      left: 50%; top: 0; bottom: 0;
+      width: 4px; background: var(--primary);
+      transform: translateX(-50%);
+    }
+    .app-title { font-size: 26px; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px; }
+    .app-subtitle { font-size: 13px; color: var(--text-sub); margin-top: 6px; }
+
+    .weather-card { padding: 18px 20px; margin-top: 18px; }
+    .weather-row { display: flex; align-items: center; gap: 12px; }
+    .weather-icon { font-size: 40px; }
+    .weather-temp { font-size: 26px; font-weight: 800; color: #1E293B; }
+    .weather-desc { font-size: 13px; color: var(--text-sub); margin-top: 2px; }
+    .weather-divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+    .clothing-row { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #475569; }
+    .clothing-icon { color: var(--primary); font-size: 16px; }
+
+    .banner { padding: 14px 18px; margin-top: 14px; cursor: pointer; }
+    .banner-title { font-size: 13px; font-weight: 700; }
+    .banner-sub { font-size: 12px; margin-top: 3px; }
+    .banner-geofence { background: var(--primary-light); }
+    .banner-geofence .banner-title,
+    .banner-geofence .banner-sub { color: var(--primary); }
+
+    .outing-card { padding: 18px 18px; margin-top: 14px; }
+    .outing-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .outing-label { font-size: 13px; font-weight: 700; color: #64748B; }
+    .alarm-btn { font-size: 12px; font-weight: 600; color: var(--text-hint); background: none; border: none; cursor: pointer; }
+
+    .outing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .outing-tile {
+      border: 1.5px solid #E2E8F0;
+      border-radius: 16px;
+      background: white;
+      padding: 14px;
+      cursor: pointer;
+      transition: transform 0.1s, border-color 0.15s, box-shadow 0.15s;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 80px;
+    }
+    .outing-tile:hover { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); transform: scale(0.98); }
+    .outing-tile:active { transform: scale(0.95); }
+    .outing-emoji { font-size: 26px; }
+    .outing-name { font-size: 14px; font-weight: 700; color: #1E293B; }
+
+    /* ── CHECKLIST SCREEN ── */
+    .checklist-appbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 40px 20px 0;
+    }
+    .back-btn { font-size: 13px; color: var(--text-sub); background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 2px; }
+    .type-badge {
+      font-size: 12px; font-weight: 700; color: var(--primary);
+      background: var(--primary-light);
+      padding: 4px 12px;
+      border-radius: 10px;
+    }
+
+    .cl-title-block { padding: 16px 20px 10px; }
+    .cl-title { font-size: 22px; font-weight: 800; color: #1E293B; letter-spacing: -0.5px; }
+    .cl-subtitle { font-size: 13px; color: var(--text-hint); margin-top: 3px; }
+
+    .progress-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+    .progress-bar-bg { flex: 1; height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: var(--primary); border-radius: 99px; transition: width 0.3s ease; }
+    .progress-count { font-size: 12px; font-weight: 600; color: var(--text-sub); white-space: nowrap; }
+
+    .cl-section { padding: 14px 20px 0; }
+    .cl-section-label { font-size: 14px; font-weight: 700; color: #64748B; margin-bottom: 8px; padding-left: 4px; }
+    .cl-items { background: var(--surface); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
+
+    .cl-item { display: flex; align-items: center; padding: 14px 20px; gap: 14px; cursor: pointer; }
+    .cl-item + .cl-item { border-top: 1px solid #f8fafc; }
+    .cl-item:hover { background: #fafafa; }
+
+    .check-circle {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: white;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s;
+      font-size: 13px;
+      color: white;
+    }
+    .check-circle.checked { background: var(--primary); border-color: var(--primary); }
+    .cl-label {
+      flex: 1;
+      font-size: 15px;
+      font-weight: 500;
+      color: #334155;
+      transition: all 0.2s;
+    }
+    .cl-label.checked { color: #CBD5E1; text-decoration: line-through; }
+    .del-btn { color: #CBD5E1; background: none; border: none; cursor: pointer; font-size: 16px; padding: 2px; }
+    .del-btn:hover { color: #94A3B8; }
+
+    .add-input-card { padding: 4px 20px; margin: 12px 20px 0; }
+    .add-input-row { display: flex; align-items: center; }
+    .add-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 14px;
+      color: var(--text-main);
+      padding: 10px 0;
+      background: transparent;
+    }
+    .add-input::placeholder { color: #CBD5E1; }
+    .add-btn { font-size: 14px; font-weight: 600; color: var(--primary); background: none; border: none; cursor: pointer; }
+
+    .toggle-card { margin: 12px 20px 0; padding: 0 20px; }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; }
+    .toggle-text-block {}
+    .toggle-title { font-size: 14px; font-weight: 600; color: #334155; }
+    .toggle-sub { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+    .toggle-switch { position: relative; width: 44px; height: 26px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: var(--border);
+      border-radius: 99px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .toggle-slider::after {
+      content: '';
+      position: absolute;
+      left: 3px; top: 3px;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: white;
+      transition: 0.2s;
+    }
+    input:checked + .toggle-slider { background: var(--primary); }
+    input:checked + .toggle-slider::after { transform: translateX(18px); }
+
+    .depart-btn-wrap { padding: 12px 20px 20px; }
+    .depart-btn {
+      width: 100%;
+      height: 56px;
+      background: var(--primary);
+      color: white;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .depart-btn:disabled { background: var(--border); cursor: not-allowed; }
+    .depart-btn:not(:disabled):hover { opacity: 0.9; }
+    .depart-btn:not(:disabled):active { transform: scale(0.98); }
+
+    /* ── SETTINGS SCREEN ── */
+    .settings-appbar {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 40px 20px 14px;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .section-header { font-size: 14px; font-weight: 700; color: var(--text-sub); padding: 0 4px; margin-bottom: 10px; }
+
+    .settings-item { display: flex; align-items: center; padding: 14px 20px; }
+    .settings-item + .settings-item { border-top: 1px solid var(--border); }
+    .settings-item-text { flex: 1; }
+    .settings-item-title { font-size: 15px; color: var(--text-main); }
+    .settings-item-sub { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+    .settings-item-trail { font-size: 14px; font-weight: 700; color: var(--primary); }
+
+    .slider-wrap { padding: 16px 20px; }
+    .slider-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .slider-title { font-size: 14px; font-weight: 600; color: var(--text-main); }
+    .slider-val { font-size: 13px; font-weight: 700; color: var(--primary); }
+    input[type=range] { width: 100%; accent-color: var(--primary); }
+    .slider-hint { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-hint); margin-top: 4px; }
+
+    .place-card { display: flex; align-items: center; padding: 14px 20px; margin-bottom: 8px; }
+    .place-radio { width: 18px; height: 18px; accent-color: var(--primary); margin-right: 14px; cursor: pointer; }
+    .place-info { flex: 1; }
+    .place-name { font-size: 15px; font-weight: 600; color: var(--text-main); }
+    .place-coords { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+    .place-del { background: none; border: none; color: #FDA4AF; cursor: pointer; font-size: 18px; }
+
+    /* ── CALENDAR SCREEN ── */
+    .calendar-appbar {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 40px 20px 14px;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-main);
+      text-align: center;
+    }
+
+    .event-card { margin-bottom: 12px; }
+    .event-inner { padding: 16px 20px; display: flex; align-items: flex-start; justify-content: space-between; }
+    .event-title { font-size: 15px; font-weight: 700; color: var(--text-main); }
+    .event-meta { font-size: 13px; color: var(--text-sub); margin-top: 4px; }
+    .event-badge {
+      font-size: 11px; font-weight: 700; color: var(--primary);
+      background: var(--primary-light);
+      padding: 4px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+      margin-left: 12px;
+    }
+
+    .empty-state { text-align: center; padding: 48px 20px; }
+    .empty-icon { font-size: 56px; margin-bottom: 16px; color: var(--text-sub); }
+    .empty-title { font-size: 16px; font-weight: 500; color: var(--text-main); }
+    .empty-sub { font-size: 13px; color: var(--text-sub); margin-top: 8px; line-height: 1.6; }
+    .google-sync-btn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: white;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+    }
+
+    .fab {
+      position: absolute;
+      bottom: 80px; right: 20px;
+      width: 52px; height: 52px;
+      background: var(--primary);
+      border-radius: 50%;
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(255,69,0,0.4);
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── Sidebar Info ── */
+    .sidebar {
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .info-card {
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 22px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .info-card h3 { font-size: 15px; font-weight: 800; color: var(--text-main); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+    .info-card ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .info-card li { font-size: 13px; color: var(--text-sub); display: flex; align-items: flex-start; gap: 8px; }
+    .info-card li::before { content: '•'; color: var(--primary); font-weight: 700; flex-shrink: 0; }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .badge { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 99px; }
+    .badge-red { background: #FEF2F2; color: #EF4444; }
+    .badge-blue { background: #EFF6FF; color: #3B82F6; }
+    .badge-green { background: #F0FDF4; color: #22C55E; }
+    .badge-orange { background: var(--primary-light); color: var(--primary); }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 30px; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1E293B;
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 12px 24px;
+      border-radius: 99px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      transition: transform 0.3s ease;
+      z-index: 9999;
+      pointer-events: none;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    @media (max-width: 800px) {
+      .sidebar { width: 100%; }
+      .phone { width: 340px; height: 700px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>너머</h1>
+  <p>외출 전, 조용히 안심을 더해요 — 앱 인터랙티브 프리뷰</p>
+</div>
+
+<div class="phone-wrapper">
+
+  <!-- ── Phone ── -->
+  <div class="phone" id="phone">
+
+    <!-- HOME -->
+    <div class="screen active" id="screen-home">
+      <div class="screen-body">
+        <div class="home-header">
+          <div class="window-logo"></div>
+          <div class="app-title">너머</div>
+          <div class="app-subtitle">외출 전, 조용히 안심을 더해요</div>
+        </div>
+
+        <!-- Weather Card -->
+        <div class="card weather-card">
+          <div class="weather-row">
+            <div class="weather-icon">⛅</div>
+            <div>
+              <div class="weather-temp">13.4°C</div>
+              <div class="weather-desc">구름 조금</div>
+            </div>
+          </div>
+          <hr class="weather-divider" />
+          <div class="clothing-row">
+            <span class="clothing-icon">👗</span>
+            오늘의 옷차림: 긴팔 + 가디건 (기온: 10°~16°)
+          </div>
+        </div>
+
+        <!-- Geofence Banner -->
+        <div class="card banner banner-geofence" onclick="showToast('집 위치 설정 화면으로 이동합니다')">
+          <div class="banner-title">집 위치를 등록하면 외출 시 알려드려요</div>
+          <div class="banner-sub">지금 설정하기 →</div>
+        </div>
+
+        <!-- Outing Type Card -->
+        <div class="card outing-card" style="margin-top:14px">
+          <div class="outing-header">
+            <span class="outing-label">지금 어디 가세요?</span>
+            <button class="alarm-btn" onclick="goScreen('settings')">알람 설정</button>
+          </div>
+          <div class="outing-grid">
+            <div class="outing-tile" onclick="goChecklist('출근')">
+              <div class="outing-emoji">🏢</div>
+              <div class="outing-name">출근</div>
+            </div>
+            <div class="outing-tile" onclick="goChecklist('운동')">
+              <div class="outing-emoji">🏃</div>
+              <div class="outing-name">운동</div>
+            </div>
+            <div class="outing-tile" onclick="goChecklist('약속')">
+              <div class="outing-emoji">🤝</div>
+              <div class="outing-name">약속</div>
+            </div>
+            <div class="outing-tile" onclick="goChecklist('회의')">
+              <div class="outing-emoji">💼</div>
+              <div class="outing-name">회의</div>
+            </div>
+            <div class="outing-tile" onclick="promptCustomType()" style="grid-column: span 2; min-height: 60px; flex-direction: row; align-items: center;">
+              <div class="outing-emoji">✏️</div>
+              <div class="outing-name">직접 추가</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item active" onclick="goScreen('home')"><span class="nav-icon">🏠</span>홈</div>
+        <div class="nav-item" onclick="goScreen('settings')"><span class="nav-icon">⚙️</span>설정</div>
+        <div class="nav-item" onclick="goScreen('calendar')"><span class="nav-icon">📅</span>달력</div>
+      </div>
+    </div>
+
+    <!-- CHECKLIST -->
+    <div class="screen" id="screen-checklist">
+      <div class="checklist-appbar">
+        <button class="back-btn" onclick="goScreen('home')">‹ 뒤로</button>
+        <div class="type-badge" id="cl-type-badge">출근</div>
+      </div>
+
+      <div class="cl-title-block">
+        <div class="cl-title">준비물 확인</div>
+        <div class="cl-subtitle">필요한 것을 챙겼는지 확인해요</div>
+        <div class="progress-row">
+          <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+          <div class="progress-count" id="progress-text">0 / 0</div>
+        </div>
+      </div>
+
+      <div style="flex:1; overflow-y:auto; scrollbar-width:none;">
+        <!-- 준비물 -->
+        <div class="cl-section">
+          <div class="cl-section-label">준비물</div>
+          <div class="cl-items" id="supplies-list"></div>
+        </div>
+
+        <!-- 행동 -->
+        <div class="cl-section" style="margin-top:16px">
+          <div class="cl-section-label">행동</div>
+          <div class="cl-items" id="actions-list"></div>
+        </div>
+
+        <!-- Add input -->
+        <div class="cl-section" style="margin-top:12px">
+          <div class="card add-input-card">
+            <div class="add-input-row">
+              <input class="add-input" id="add-input" placeholder="준비물 추가..." onkeydown="handleAddKey(event)" />
+              <button class="add-btn" onclick="addItem()">추가</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Toggle -->
+        <div class="cl-section">
+          <div class="card toggle-card">
+            <div class="toggle-row">
+              <div class="toggle-text-block">
+                <div class="toggle-title">다시 알림 받기</div>
+                <div class="toggle-sub">오늘 집을 나설 때 알림을 한 번 더 받아요</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="re-alert-toggle" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div style="height: 12px"></div>
+      </div>
+
+      <div class="depart-btn-wrap">
+        <button class="depart-btn" id="depart-btn" onclick="depart()" disabled>출발해요</button>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="screen" id="screen-settings">
+      <div class="settings-appbar">설정</div>
+      <div class="screen-body" style="padding-top:20px">
+
+        <div class="section-header">기본 설정</div>
+        <div class="card" style="margin-bottom:24px">
+          <div class="settings-item" onclick="pickTime()">
+            <div class="settings-item-text">
+              <div class="settings-item-title">준비 시작 시간</div>
+              <div class="settings-item-sub">매일 이 시간대에 외출 준비를 도와드려요: <span id="prep-time-display">07:30</span></div>
+            </div>
+            <div class="settings-item-trail">🕐</div>
+          </div>
+        </div>
+
+        <div class="section-header">알림 방해금지</div>
+        <div class="card" style="margin-bottom:24px">
+          <div class="settings-item">
+            <div class="settings-item-text">
+              <div class="settings-item-title">방해금지 모드</div>
+              <div class="settings-item-sub">설정한 시간대에는 알림을 보내지 않아요</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="dnd-toggle" onchange="toggleDnd(this)" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div id="dnd-times" style="display:none">
+            <div class="settings-item" onclick="showToast('시작 시간 선택')">
+              <div class="settings-item-text"><div class="settings-item-title">시작 시간</div></div>
+              <div class="settings-item-trail">22:00</div>
+            </div>
+            <div class="settings-item" onclick="showToast('종료 시간 선택')">
+              <div class="settings-item-text"><div class="settings-item-title">종료 시간</div></div>
+              <div class="settings-item-trail">08:00</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-header">자동 연동 설정 (OpenWeatherMap)</div>
+        <div class="card" style="margin-bottom:24px">
+          <div class="settings-item">
+            <div class="settings-item-text">
+              <div class="settings-item-title">날씨 연동 (우산)</div>
+              <div class="settings-item-sub">비나 눈이 오면 체크리스트에 우산을 추가해요</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="settings-item">
+            <div class="settings-item-text">
+              <div class="settings-item-title">미세먼지 연동 (마스크)</div>
+              <div class="settings-item-sub">미세먼지 농도가 높으면 마스크를 추가해요</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="slider-wrap">
+            <div class="slider-row">
+              <span class="slider-title">온도 민감도 설정</span>
+              <span class="slider-val" id="sensitivity-val">0.0°C</span>
+            </div>
+            <input type="range" min="-5" max="5" step="1" value="0" oninput="updateSensitivity(this.value)" />
+            <div class="slider-hint"><span>추위를 많이 탐</span><span>보통</span><span>더위를 많이 탐</span></div>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px">
+          <div class="section-header" style="margin-bottom:0">장소 관리</div>
+          <button onclick="showToast('장소 추가 다이얼로그')" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--primary)">⊕</button>
+        </div>
+
+        <div class="card" id="places-list">
+          <div class="place-card">
+            <input type="radio" class="place-radio" name="place" checked />
+            <div class="place-info">
+              <div class="place-name">우리집</div>
+              <div class="place-coords">37.5665, 126.9780</div>
+            </div>
+            <button class="place-del">🗑</button>
+          </div>
+          <div class="place-card" style="border-top:1px solid var(--border)">
+            <input type="radio" class="place-radio" name="place" />
+            <div class="place-info">
+              <div class="place-name">회사</div>
+              <div class="place-coords">37.5048, 127.0249</div>
+            </div>
+            <button class="place-del">🗑</button>
+          </div>
+        </div>
+
+        <div style="height: 40px"></div>
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item" onclick="goScreen('home')"><span class="nav-icon">🏠</span>홈</div>
+        <div class="nav-item active" onclick="goScreen('settings')"><span class="nav-icon">⚙️</span>설정</div>
+        <div class="nav-item" onclick="goScreen('calendar')"><span class="nav-icon">📅</span>달력</div>
+      </div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div class="screen" id="screen-calendar">
+      <div class="calendar-appbar">오늘의 일정</div>
+      <div class="screen-body" style="padding-top: 16px">
+        <div class="card event-card">
+          <div class="event-inner">
+            <div>
+              <div class="event-title">팀 주간 회의</div>
+              <div class="event-meta">10:00 - 회의</div>
+            </div>
+            <div class="event-badge">회의</div>
+          </div>
+        </div>
+        <div class="card event-card">
+          <div class="event-inner">
+            <div>
+              <div class="event-title">점심 약속 (강남)</div>
+              <div class="event-meta">12:30 - 약속</div>
+            </div>
+            <div class="event-badge">약속</div>
+          </div>
+        </div>
+        <div class="card event-card">
+          <div class="event-inner">
+            <div>
+              <div class="event-title">헬스장</div>
+              <div class="event-meta">18:00 - 운동</div>
+            </div>
+            <div class="event-badge">운동</div>
+          </div>
+        </div>
+      </div>
+      <button class="fab" onclick="showToast('새 일정 추가')">+</button>
+      <div class="bottom-nav">
+        <div class="nav-item" onclick="goScreen('home')"><span class="nav-icon">🏠</span>홈</div>
+        <div class="nav-item" onclick="goScreen('settings')"><span class="nav-icon">⚙️</span>설정</div>
+        <div class="nav-item active" onclick="goScreen('calendar')"><span class="nav-icon">📅</span>달력</div>
+      </div>
+    </div>
+
+  </div><!-- /phone -->
+
+  <!-- ── Sidebar ── -->
+  <div class="sidebar">
+    <div class="info-card">
+      <h3>🚀 앱 소개</h3>
+      <ul>
+        <li>외출 직전 집 근처 지오펜스를 감지하여 자동 알림</li>
+        <li>날씨/미세먼지 연동으로 우산·마스크 자동 추가</li>
+        <li>구글 캘린더 연동 → 다음 일정 타입 자동 추천</li>
+        <li>방해금지 시간대 설정 지원</li>
+        <li>체크리스트 완료 시 출발 버튼 활성화</li>
+      </ul>
+    </div>
+
+    <div class="info-card">
+      <h3>📱 화면 구성</h3>
+      <ul>
+        <li><b>홈</b> — 날씨 카드 + 외출 유형 선택</li>
+        <li><b>체크리스트</b> — 준비물/행동 체크 + 진행 바</li>
+        <li><b>설정</b> — 알림·장소·날씨 API 관리</li>
+        <li><b>달력</b> — 오늘 일정 확인 및 추가</li>
+      </ul>
+    </div>
+
+    <div class="info-card">
+      <h3>🎨 디자인 시스템</h3>
+      <div class="badge-row">
+        <span class="badge badge-orange">Primary #FF4500</span>
+        <span class="badge badge-blue">배경 #F8FAFC</span>
+        <span class="badge badge-green">텍스트 #191F28</span>
+        <span class="badge" style="background:#f1f5f9;color:#64748B">서브 #8B95A1</span>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <h3>✅ 기본 준비물</h3>
+      <ul>
+        <li><b>출근</b> — 지갑, 교통카드, 열쇠, 폰, 신분증</li>
+        <li><b>운동</b> — 운동복, 물병, 수건, 운동화, 이어폰</li>
+        <li><b>약속</b> — 지갑, 폰, 열쇠, 보조배터리</li>
+        <li><b>회의</b> — 노트북, 충전기, 명함, 노트/펜</li>
+        <li>공통 행동 — 가스불, 형광등</li>
+      </ul>
+    </div>
+  </div>
+
+</div><!-- /phone-wrapper -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Data ──
+  const defaultItems = {
+    '출근': ['지갑', '교통카드', '열쇠', '폰', '신분증'],
+    '운동': ['운동복', '물병', '수건', '운동화', '이어폰'],
+    '약속': ['지갑', '폰', '열쇠', '보조배터리'],
+    '회의': ['노트북', '충전기', '명함', '노트/펜', '태블릿'],
+  };
+  const defaultActions = ['가스불', '형광등'];
+
+  let currentType = '';
+  let supplies = [];
+  let actions = [];
+
+  // ── Screen Navigation ──
+  function goScreen(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + name).classList.add('active');
+  }
+
+  function goChecklist(type) {
+    currentType = type;
+    document.getElementById('cl-type-badge').textContent = type;
+
+    // Initialize items
+    const base = defaultItems[type] || [];
+    supplies = base.map((label, i) => ({ id: 's' + i, label, checked: false }));
+    actions = defaultActions.map((label, i) => ({ id: 'a' + i, label, checked: false }));
+
+    renderChecklist();
+    goScreen('checklist');
+  }
+
+  function promptCustomType() {
+    const type = prompt('외출 종류를 입력하세요\n(예: 병원, 쇼핑)');
+    if (type && type.trim()) goChecklist(type.trim());
+  }
+
+  // ── Checklist Rendering ──
+  function renderChecklist() {
+    renderList('supplies-list', supplies, 's');
+    renderList('actions-list', actions, 'a');
+    updateProgress();
+  }
+
+  function renderList(containerId, items, prefix) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = items.map(item => `
+      <div class="cl-item" onclick="toggleItem('${prefix}', '${item.id}')">
+        <div class="check-circle ${item.checked ? 'checked' : ''}">${item.checked ? '✓' : ''}</div>
+        <span class="cl-label ${item.checked ? 'checked' : ''}">${item.label}</span>
+        <button class="del-btn" onclick="event.stopPropagation(); deleteItem('${prefix}', '${item.id}')">✕</button>
+      </div>
+    `).join('');
+  }
+
+  function toggleItem(prefix, id) {
+    const list = prefix === 's' ? supplies : actions;
+    const item = list.find(i => i.id === id);
+    if (item) item.checked = !item.checked;
+    renderChecklist();
+  }
+
+  function deleteItem(prefix, id) {
+    if (prefix === 's') supplies = supplies.filter(i => i.id !== id);
+    else actions = actions.filter(i => i.id !== id);
+    renderChecklist();
+  }
+
+  function addItem() {
+    const input = document.getElementById('add-input');
+    const label = input.value.trim();
+    if (!label) return;
+    supplies.push({ id: 's' + Date.now(), label, checked: false });
+    input.value = '';
+    renderChecklist();
+  }
+
+  function handleAddKey(e) {
+    if (e.key === 'Enter') addItem();
+  }
+
+  function updateProgress() {
+    const all = [...supplies, ...actions];
+    const checked = all.filter(i => i.checked).length;
+    const total = all.length;
+    const pct = total === 0 ? 0 : (checked / total) * 100;
+
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-text').textContent = checked + ' / ' + total;
+
+    const btn = document.getElementById('depart-btn');
+    btn.disabled = !(checked === total && total > 0);
+  }
+
+  function depart() {
+    showToast('🎉 안전하게 다녀오세요!');
+    setTimeout(() => goScreen('home'), 1000);
+  }
+
+  // ── Settings ──
+  function toggleDnd(el) {
+    document.getElementById('dnd-times').style.display = el.checked ? 'block' : 'none';
+  }
+
+  function updateSensitivity(val) {
+    const n = parseFloat(val);
+    document.getElementById('sensitivity-val').textContent = (n > 0 ? '+' : '') + n.toFixed(1) + '°C';
+  }
+
+  function pickTime() {
+    const t = prompt('준비 시작 시간을 입력하세요 (HH:MM)', '07:30');
+    if (t && /^\d{2}:\d{2}$/.test(t)) {
+      document.getElementById('prep-time-display').textContent = t;
+      showToast('저장되었습니다: ' + t);
+    }
+  }
+
+  // ── Toast ──
+  let toastTimer;
+  function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  }
+</script>
+</body>
+</html>
