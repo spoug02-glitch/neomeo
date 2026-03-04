@@ -231,7 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            _BottomNav(currentIndex: 0),
+            const NeomeBottomNav(currentIndex: 0),
           ],
         ),
       ),
@@ -317,7 +317,7 @@ class _WeatherCard extends StatelessWidget {
               const Divider(height: 24),
               Row(
                 children: [
-                   const Icon(Icons.checkroom, size: 18, color: Color(0xFF6366F1)),
+                   const Icon(Icons.checkroom, size: 18, color: NeomeDesignSystem.primary),
                    const SizedBox(width: 8),
                    Expanded(
                      child: Text(
@@ -436,40 +436,6 @@ class _OutingTile extends StatelessWidget {
   }
 }
 
-class _BottomNav extends StatelessWidget {
-  final int currentIndex;
-  const _BottomNav({required this.currentIndex});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: NeomeDesignSystem.border, width: 1)),
-      ),
-      child: BottomNavigationBar(
-        currentIndex: currentIndex,
-        onTap: (i) {
-          if (i == 0) context.go('/home');
-          if (i == 1) context.go('/settings');
-          if (i == 2) context.go('/calendar');
-        },
-        backgroundColor: Colors.white,
-        selectedItemColor: NeomeDesignSystem.primary,
-        unselectedItemColor: NeomeDesignSystem.textSub,
-        elevation: 0,
-        type: BottomNavigationBarType.fixed,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-        unselectedLabelStyle: const TextStyle(fontSize: 12),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: '홈'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), activeIcon: Icon(Icons.settings), label: '설정'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), activeIcon: Icon(Icons.calendar_month), label: '달력'),
-        ],
-      ),
-    );
-  }
-}
 
 
 

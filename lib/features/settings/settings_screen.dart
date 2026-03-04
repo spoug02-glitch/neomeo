@@ -6,6 +6,7 @@ import 'package:fl_location/fl_location.dart';
 import '../../data/prefs_service.dart';
 import '../../data/place.dart';
 import '../../services/geofence_service_wrapper.dart';
+import '../../app/design_system.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -277,7 +278,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: const Text('설정', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
+        automaticallyImplyLeading: false,
       ),
+      bottomNavigationBar: const NeomeBottomNav(currentIndex: 1),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -307,13 +310,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const Divider(height: 1),
                     ListTile(
                       title: const Text('시작 시간'),
-                      trailing: Text(_dndStart, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
+                      trailing: Text(_dndStart, style: const TextStyle(fontWeight: FontWeight.bold, color: NeomeDesignSystem.primary)),
                       onTap: () => _pickDndTime(true),
                     ),
                     const Divider(height: 1),
                     ListTile(
                       title: const Text('종료 시간'),
-                      trailing: Text(_dndEnd, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo)),
+                      trailing: Text(_dndEnd, style: const TextStyle(fontWeight: FontWeight.bold, color: NeomeDesignSystem.primary)),
                       onTap: () => _pickDndTime(false),
                     ),
                   ],
@@ -350,7 +353,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             const Text('온도 민감도 설정', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                             Text(
                               _tempSensitivity > 0 ? '+${_tempSensitivity.toStringAsFixed(1)}°C' : '${_tempSensitivity.toStringAsFixed(1)}°C',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.indigo),
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: NeomeDesignSystem.primary),
                             ),
                           ],
                         ),
@@ -362,7 +365,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           divisions: 10,
                           label: _tempSensitivity.toStringAsFixed(1),
                           onChanged: _updateSensitivity,
-                          activeColor: Colors.indigo,
+                          activeColor: NeomeDesignSystem.primary,
                         ),
                         const Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -410,7 +413,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildSectionHeader('장소 관리'),
-                IconButton(onPressed: _addPlace, icon: const Icon(Icons.add_circle, color: Colors.indigo)),
+                IconButton(onPressed: _addPlace, icon: const Icon(Icons.add_circle, color: NeomeDesignSystem.primary)),
               ],
             ),
             if (_places.isEmpty)
@@ -425,7 +428,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   final isActive = p.id == _activePlaceId;
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
-                    color: isActive ? Colors.indigo.shade50 : Colors.white,
+                    color: isActive ? NeomeDesignSystem.primary.withOpacity(0.06) : Colors.white,
                     child: ListTile(
                       title: Text(p.name, style: TextStyle(fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
                       subtitle: Text('${p.lat}, ${p.lon}'),
@@ -443,12 +446,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
             const SizedBox(height: 40),
-            Center(
-              child: TextButton(
-                onPressed: () => context.go('/home'),
-                child: const Text('홈으로 돌아가기'),
-              ),
-            ),
           ],
         ),
       ),
@@ -460,7 +457,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: const EdgeInsets.only(bottom: 12, left: 4),
       child: Text(
         title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: NeomeDesignSystem.textSub),
       ),
     );
   }

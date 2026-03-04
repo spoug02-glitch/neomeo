@@ -307,7 +307,7 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
                             style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                           ),
                           value: extraAllowed,
-                          activeColor: const Color(0xFF6366F1),
+                          activeColor: NeomeDesignSystem.primary,
                           onChanged: (val) async {
                             ref.read(_extraProvider.notifier).state = val;
                             if (val) {

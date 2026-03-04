@@ -45,10 +45,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
       backgroundColor: NeomeDesignSystem.background,
       appBar: AppBar(
         title: const Text('오늘의 일정', style: NeomeDesignSystem.heading2),
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
+        automaticallyImplyLeading: false,
       ),
+      bottomNavigationBar: const NeomeBottomNav(currentIndex: 2),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddEventDialog,
         backgroundColor: NeomeDesignSystem.primary,

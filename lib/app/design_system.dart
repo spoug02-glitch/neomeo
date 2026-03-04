@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class NeomeDesignSystem {
   // Colors
@@ -50,6 +51,41 @@ class NeomeDesignSystem {
     fontWeight: FontWeight.normal,
     color: textHint,
   );
+}
+
+class NeomeBottomNav extends StatelessWidget {
+  final int currentIndex;
+  const NeomeBottomNav({super.key, required this.currentIndex});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: NeomeDesignSystem.border, width: 1)),
+      ),
+      child: BottomNavigationBar(
+        currentIndex: currentIndex,
+        onTap: (i) {
+          if (i == 0) context.go('/home');
+          if (i == 1) context.go('/settings');
+          if (i == 2) context.go('/calendar');
+        },
+        backgroundColor: Colors.white,
+        selectedItemColor: NeomeDesignSystem.textMain,
+        unselectedItemColor: NeomeDesignSystem.textSub,
+        elevation: 0,
+        type: BottomNavigationBarType.fixed,
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        unselectedLabelStyle: const TextStyle(fontSize: 12),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: '홈'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), activeIcon: Icon(Icons.settings), label: '설정'),
+          BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), activeIcon: Icon(Icons.calendar_month), label: '달력'),
+        ],
+      ),
+    );
+  }
 }
 
 class WindowLogo extends StatelessWidget {
