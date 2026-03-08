@@ -23,8 +23,8 @@ void main() async {
 
   // Restart geofence if home was previously set
   if (!kIsWeb) {
-  await GeofenceServiceWrapper().startFromSaved();
-}
+    await GeofenceServiceWrapper().startFromSaved();
+  }
 
   // Register midnight reset WorkManager task
   await MidnightResetWorker.register();

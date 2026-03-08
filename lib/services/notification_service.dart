@@ -44,8 +44,19 @@ class NotificationService {
         );
   }
 
-  /// Show the geofence exit alert.
+  /// Show the geofence exit alert (레거시 — 고정 메시지).
   Future<void> showGeofenceAlert() async {
+    await showDepartureAlert(
+      '외출 준비 됐나요? 🚪',
+      '체크리스트를 확인하고 안심하게 떠나보세요.',
+    );
+  }
+
+  /// 동적 메시지로 외출 알림을 발송한다.
+  ///
+  /// [title] 예) "가스불 확인했어?", "우산 챙겼어?"
+  /// [body]  예) "체크리스트를 한 번 더 확인해봐요.", "비 올 것 같아요."
+  Future<void> showDepartureAlert(String title, String body) async {
     const androidDetails = AndroidNotificationDetails(
       _channelId,
       _channelName,
@@ -56,9 +67,9 @@ class NotificationService {
     );
 
     await _plugin.show(
-      0, // fixed id — ensures only one notification per day slot
-      '외출 준비 됐나요? 🚪',
-      '체크리스트를 확인하고 안심하게 떠나보세요.',
+      0, // fixed id — 하루 슬롯당 하나의 알림만 유지
+      title,
+      body,
       const NotificationDetails(android: androidDetails),
       payload: 'neomeo://checklist',
     );

@@ -9,6 +9,8 @@ import 'package:fl_location/fl_location.dart';
 import '../../app/design_system.dart';
 import '../../services/geofence_service_wrapper.dart';
 
+enum _LocationMode { initial, fetching, form }
+
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -17,69 +19,114 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  int _step = 0; // 0: Welcome, 1: Permissions, 2: Location Input, 3: Done
-  final _nameCtrl = TextEditingController();
+  int _step = 0; // 0: Welcome, 1: Permissions, 2: Location, 3: Done
+
+  // Location step sub-state
+  _LocationMode _locationMode = _LocationMode.initial;
+  bool _isSaving = false;
+  bool _showFetchAlternative = false; // 위치 로딩 중 일정 시간 후 대체 버튼 표시
+
+  // Form controllers
+  final _nameCtrl = TextEditingController(text: '집');
   final _addressCtrl = TextEditingController();
-  final _detailedAddressCtrl = TextEditingController();
   final _latCtrl = TextEditingController();
   final _lonCtrl = TextEditingController();
-  bool _isSaving = false;
   final _nameFocusNode = FocusNode();
+
+  static const int _totalSteps = 3;
 
   @override
   void initState() {
     super.initState();
-    _nameFocusNode.addListener(() {
-      setState(() {}); // Update color on focus
+    _nameFocusNode.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _addressCtrl.dispose();
+    _latCtrl.dispose();
+    _lonCtrl.dispose();
+    _nameFocusNode.dispose();
+    super.dispose();
+  }
+
+  // ── 단계 이동 ──────────────────────────────────────────────────────────────
+
+  void _goToStep(int step) => setState(() => _step = step);
+
+  Future<void> _skipOnboarding() async {
+    await PrefsService.markOnboardingDone();
+    if (mounted) context.go('/home');
+  }
+
+  // ── 권한 ───────────────────────────────────────────────────────────────────
+
+  Future<void> _requestPermissions() async {
+    await Permission.location.request();
+    await Permission.notification.request();
+    await Permission.ignoreBatteryOptimizations.request();
+    _goToStep(2);
+  }
+
+  // ── 위치 가져오기 ──────────────────────────────────────────────────────────
+
+  Future<void> _fetchCurrentLocation() async {
+    setState(() {
+      _locationMode = _LocationMode.fetching;
+      _showFetchAlternative = false;
+    });
+
+    // 3초 후 "직접 설정하기" 대체 버튼 노출
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted && _locationMode == _LocationMode.fetching) {
+        setState(() => _showFetchAlternative = true);
+      }
+    });
+
+    try {
+      // 먼저 마지막 알려진 위치 시도 (빠름)
+      Location? location;
+      try {
+        location = await FlLocation.getLocation(
+          accuracy: LocationAccuracy.low,
+        );
+      } catch (_) {
+        // 빠른 위치 실패 시 일반 요청으로 fallback
+      }
+
+      // 빠른 위치 실패 시 높은 정확도로 재시도
+      location ??= await FlLocation.getLocation(
+        accuracy: LocationAccuracy.high,
+      );
+
+      if (!mounted) return;
+      _latCtrl.text = location!.latitude.toStringAsFixed(6);
+      _lonCtrl.text = location.longitude.toStringAsFixed(6);
+      setState(() => _locationMode = _LocationMode.form);
+      _showSnack('현재 위치를 가져왔어요!');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _locationMode = _LocationMode.form);
+      _showSnack('위치를 가져오지 못했어요. 직접 입력하거나 나중에 설정해주세요.');
+    }
+  }
+
+  void _cancelFetch() {
+    setState(() {
+      _locationMode = _LocationMode.initial;
+      _showFetchAlternative = false;
     });
   }
 
-  Future<void> _requestPermissions() async {
-    // Request location
-    var status = await Permission.location.request();
-    if (!status.isGranted) {
-      _showError('위치 권한이 필요합니다.');
-      return;
-    }
+  void _useManualInput() => setState(() => _locationMode = _LocationMode.form);
 
-    // Request notification
-    await Permission.notification.request();
+  // ── 장소 저장 ──────────────────────────────────────────────────────────────
 
-    // Request battery optimization exemption
-    await Permission.ignoreBatteryOptimizations.request();
-
-    setState(() => _step = 2);
-  }
-
-  Future<void> _getCurrentLocation() async {
-    setState(() => _isSaving = true);
-    try {
-      final location = await FlLocation.getLocation();
-      setState(() {
-        _latCtrl.text = location.latitude.toString();
-        _lonCtrl.text = location.longitude.toString();
-      });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('현재 위치의 좌표를 성공적으로 가져왔습니다.')));
-    } catch (e) {
-      _showError('위치를 가져오지 못했습니다: $e');
-    } finally {
-      setState(() => _isSaving = false);
-    }
-  }
-
-  void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-
-  Future<void> _saveInitialPlace() async {
+  Future<void> _savePlace() async {
     final name = _nameCtrl.text.trim();
-    final address = _addressCtrl.text.trim();
-    final detailedAddress = _detailedAddressCtrl.text.trim();
-    final lat = double.tryParse(_latCtrl.text.trim()) ?? 0.0;
-    final lon = double.tryParse(_lonCtrl.text.trim()) ?? 0.0;
-
     if (name.isEmpty) {
-      _showError('장소 이름을 입력해주세요.');
+      _showSnack('장소 이름을 입력해주세요.');
       return;
     }
 
@@ -88,10 +135,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final newPlace = Place(
       id: const Uuid().v4(),
       name: name,
-      address: address.isNotEmpty ? address : null,
-      detailedAddress: detailedAddress.isNotEmpty ? detailedAddress : null,
-      lat: lat,
-      lon: lon,
+      address: _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : null,
+      lat: double.tryParse(_latCtrl.text.trim()) ?? 0.0,
+      lon: double.tryParse(_lonCtrl.text.trim()) ?? 0.0,
     );
 
     await PrefsService.savePlaces([newPlace]);
@@ -99,50 +145,76 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     await GeofenceServiceWrapper().startMonitoringActivePlace();
     await PrefsService.markOnboardingDone();
 
-    setState(() {
-      _isSaving = false;
-      _step = 3;
-    });
+    if (mounted) setState(() { _isSaving = false; _step = 3; });
   }
 
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _addressCtrl.dispose();
-    _detailedAddressCtrl.dispose();
-    _latCtrl.dispose();
-    _lonCtrl.dispose();
-    _nameFocusNode.dispose();
-    super.dispose();
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: NeomeDesignSystem.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: _buildStepContents(),
+        child: Column(
+          children: [
+            if (_step < 3) _buildProgressBar(),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                child: _buildStepContent(),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildStepContents() {
+  Widget _buildProgressBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                '${_step + 1} / $_totalSteps',
+                style: NeomeDesignSystem.caption.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: (_step + 1) / _totalSteps,
+              minHeight: 4,
+              backgroundColor: NeomeDesignSystem.border,
+              color: NeomeDesignSystem.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepContent() {
     switch (_step) {
-      case 0:
-        return _buildWelcomeStep();
-      case 1:
-        return _buildPermissionStep();
-      case 2:
-        return _buildLocationStep();
-      case 3:
-        return _buildDoneStep();
-      default:
-        return const SizedBox();
+      case 0: return _buildWelcomeStep();
+      case 1: return _buildPermissionStep();
+      case 2: return _buildLocationStep();
+      case 3: return _buildDoneStep();
+      default: return const SizedBox();
     }
   }
+
+  // ── Step 0: 환영 ───────────────────────────────────────────────────────────
 
   Widget _buildWelcomeStep() {
     return Column(
@@ -151,24 +223,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         const WindowLogo(size: 80),
         const SizedBox(height: 32),
         Text(
-          '너머에 오신 것을 환영합니다',
+          '너머에 오신 것을 환영해요',
           style: NeomeDesignSystem.heading1,
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
         Text(
-          '너머는 집이나 회사를 나설 때\n깜빡하기 쉬운 준비물을 챙기도록 도와줍니다.',
+          '집이나 회사를 나설 때,\n챙겨야 할 준비물을 잊지 않도록 도와드려요.',
           textAlign: TextAlign.center,
-          style: NeomeDesignSystem.body1.copyWith(color: NeomeDesignSystem.textSub, fontWeight: FontWeight.normal),
+          style: NeomeDesignSystem.body1.copyWith(
+            color: NeomeDesignSystem.textSub,
+            fontWeight: FontWeight.normal,
+          ),
         ),
         const Spacer(),
-        FilledButton(
-          onPressed: () => setState(() => _step = 1),
-          child: const Text('시작하기'),
-        ),
+        _primaryButton('시작하기', () => _goToStep(1)),
       ],
     );
   }
+
+  // ── Step 1: 권한 ───────────────────────────────────────────────────────────
 
   Widget _buildPermissionStep() {
     return Column(
@@ -176,112 +250,183 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       children: [
         const Text('📍', style: TextStyle(fontSize: 60)),
         const SizedBox(height: 24),
-        const Text(
-          '권한 설정이 필요합니다',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        Text(
+          '권한 설정이 필요해요',
+          style: NeomeDesignSystem.heading1,
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
-        const Text(
-          '외출을 감지하기 위해 위치 권한과\n알림 권한이 필요합니다.',
+        Text(
+          '외출 감지와 알림을 위해 위치 권한과 알림 권한이 필요해요.\n나중에 설정에서도 변경할 수 있어요.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 16, color: Colors.grey),
-        ),
-        const Spacer(),
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: FilledButton(
-            onPressed: _requestPermissions,
-            child: const Text('권한 허용하기'),
+          style: NeomeDesignSystem.body1.copyWith(
+            color: NeomeDesignSystem.textSub,
+            fontWeight: FontWeight.normal,
           ),
         ),
+        const Spacer(),
+        _primaryButton('권한 허용하기', _requestPermissions),
+        const SizedBox(height: 12),
+        _textButton('나중에 할게요', () => _goToStep(2)),
       ],
     );
   }
 
+  // ── Step 2: 위치 설정 ──────────────────────────────────────────────────────
+
   Widget _buildLocationStep() {
+    switch (_locationMode) {
+      case _LocationMode.initial:  return _buildLocationInitial();
+      case _LocationMode.fetching: return _buildLocationFetching();
+      case _LocationMode.form:     return _buildLocationForm();
+    }
+  }
+
+  Widget _buildLocationInitial() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text('🏠', style: TextStyle(fontSize: 60)),
+        const SizedBox(height: 24),
+        Text(
+          '집 위치를 설정해주세요',
+          style: NeomeDesignSystem.heading1,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          '외출 감지를 위해 집 위치를 알아야 해요.\n지금 바로 설정하거나 나중에 하실 수 있어요.',
+          textAlign: TextAlign.center,
+          style: NeomeDesignSystem.body1.copyWith(
+            color: NeomeDesignSystem.textSub,
+            fontWeight: FontWeight.normal,
+          ),
+        ),
+        const Spacer(),
+        _primaryButton(
+          '현재 위치 가져오기',
+          _fetchCurrentLocation,
+          icon: Icons.my_location,
+        ),
+        const SizedBox(height: 12),
+        _outlinedButton('직접 설정하기', _useManualInput),
+        const SizedBox(height: 12),
+        _textButton('나중에 할게요', _skipOnboarding),
+      ],
+    );
+  }
+
+  Widget _buildLocationFetching() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const SizedBox(
+          width: 56,
+          height: 56,
+          child: CircularProgressIndicator(
+            color: NeomeDesignSystem.primary,
+            strokeWidth: 3,
+          ),
+        ),
+        const SizedBox(height: 32),
+        Text(
+          '현재 위치를 확인하고 있어요...',
+          style: NeomeDesignSystem.heading2,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '잠시만 기다려주세요.',
+          textAlign: TextAlign.center,
+          style: NeomeDesignSystem.body1.copyWith(
+            color: NeomeDesignSystem.textSub,
+            fontWeight: FontWeight.normal,
+          ),
+        ),
+        const Spacer(),
+        AnimatedOpacity(
+          opacity: _showFetchAlternative ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 300),
+          child: _showFetchAlternative
+              ? Column(
+                  children: [
+                    _outlinedButton('직접 설정하기', _useManualInput),
+                    const SizedBox(height: 12),
+                  ],
+                )
+              : const SizedBox(height: 64),
+        ),
+        _textButton('취소', _cancelFetch),
+      ],
+    );
+  }
+
+  Widget _buildLocationForm() {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 40),
-          const Text(
-            '첫 번째 장소를 등록할까요?',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
           const SizedBox(height: 8),
-          const Text(
-            '집이나 회사 등 자주 나가는 곳을 입력해주세요.',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-          const SizedBox(height: 32),
-          TextField(
+          Text('집 위치를 설정해주세요', style: NeomeDesignSystem.heading1),
+          const SizedBox(height: 8),
+          Text('장소 정보를 입력하고 등록해주세요.', style: NeomeDesignSystem.body2),
+          const SizedBox(height: 28),
+          _textField(
             controller: _nameCtrl,
             focusNode: _nameFocusNode,
-            style: NeomeDesignSystem.body1,
-            decoration: InputDecoration(
-              labelText: '장소 이름',
-              labelStyle: TextStyle(
-                color: _nameFocusNode.hasFocus ? NeomeDesignSystem.primary : NeomeDesignSystem.textHint,
-              ),
-              hintText: '예: 우리집, 회사',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: NeomeDesignSystem.primary, width: 2),
-              ),
-            ),
+            label: '장소 이름',
+            hint: '예: 집, 회사',
           ),
-          const SizedBox(height: 20),
-          TextField(
+          const SizedBox(height: 16),
+          _textField(
             controller: _addressCtrl,
-            decoration: const InputDecoration(
-              labelText: '주소',
-              hintText: '도로명 주소 또는 지번 주소',
-              border: OutlineInputBorder(),
-            ),
+            label: '주소 (선택)',
+            hint: '도로명 또는 지번 주소',
           ),
-          const SizedBox(height: 20),
-          TextField(
-            controller: _detailedAddressCtrl,
-            decoration: const InputDecoration(
-              labelText: '상세 주소',
-              hintText: '동, 호수 등',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Center(
-            child: OutlinedButton.icon(
-              onPressed: _isSaving ? null : _getCurrentLocation,
-              icon: const Icon(Icons.my_location),
-              label: const Text('현재 위치 가져오기'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _textField(
+                  controller: _latCtrl,
+                  label: '위도',
+                  hint: '37.123456',
+                  keyboardType: TextInputType.number,
+                ),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _textField(
+                  controller: _lonCtrl,
+                  label: '경도',
+                  hint: '127.123456',
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 40),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: FilledButton(
-              onPressed: _isSaving ? null : _saveInitialPlace,
-              child: _isSaving
-                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('장소 등록 및 완료'),
-            ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: _isSaving ? null : _fetchCurrentLocation,
+            icon: const Icon(Icons.my_location, size: 16),
+            label: const Text('현재 위치 자동 인식'),
+            style: TextButton.styleFrom(foregroundColor: NeomeDesignSystem.primary),
           ),
+          const SizedBox(height: 24),
+          _primaryButton(
+            '등록하고 시작하기',
+            _isSaving ? null : _savePlace,
+            loading: _isSaving,
+          ),
+          const SizedBox(height: 12),
+          _textButton('나중에 할게요', _isSaving ? null : _skipOnboarding),
+          const SizedBox(height: 16),
         ],
       ),
     );
   }
+
+  // ── Step 3: 완료 ───────────────────────────────────────────────────────────
 
   Widget _buildDoneStep() {
     return Column(
@@ -289,26 +434,113 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       children: [
         const Text('✨', style: TextStyle(fontSize: 60)),
         const SizedBox(height: 24),
-        const Text(
-          '준비가 끝났습니다!',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        ),
+        Text('준비가 됐어요!', style: NeomeDesignSystem.heading1, textAlign: TextAlign.center),
         const SizedBox(height: 16),
-        const Text(
-          '이제 해당 장소를 나설 때 알림을 보내드릴게요.',
+        Text(
+          '이제 집을 나설 때 준비물을 잊지 않도록\n조용히 알림을 드릴게요.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 16, color: Colors.grey),
-        ),
-        const Spacer(),
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: FilledButton(
-            onPressed: () => context.go('/home'),
-            child: const Text('홈으로 이동'),
+          style: NeomeDesignSystem.body1.copyWith(
+            color: NeomeDesignSystem.textSub,
+            fontWeight: FontWeight.normal,
           ),
         ),
+        const Spacer(),
+        _primaryButton('홈으로 가기', () => context.go('/home')),
       ],
+    );
+  }
+
+  // ── 공통 위젯 ──────────────────────────────────────────────────────────────
+
+  Widget _primaryButton(
+    String label,
+    VoidCallback? onPressed, {
+    IconData? icon,
+    bool loading = false,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: FilledButton(
+        onPressed: onPressed,
+        child: loading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              )
+            : icon != null
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 18),
+                      const SizedBox(width: 8),
+                      Text(label),
+                    ],
+                  )
+                : Text(label),
+      ),
+    );
+  }
+
+  Widget _outlinedButton(String label, VoidCallback? onPressed) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: NeomeDesignSystem.primary),
+          foregroundColor: NeomeDesignSystem.primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        child: Text(label),
+      ),
+    );
+  }
+
+  Widget _textButton(String label, VoidCallback? onPressed) {
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(foregroundColor: NeomeDesignSystem.textSub),
+        child: Text(label),
+      ),
+    );
+  }
+
+  Widget _textField({
+    required TextEditingController controller,
+    required String label,
+    String? hint,
+    FocusNode? focusNode,
+    TextInputType? keyboardType,
+  }) {
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      keyboardType: keyboardType,
+      style: NeomeDesignSystem.body1,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        labelStyle: TextStyle(
+          color: (focusNode?.hasFocus ?? false)
+              ? NeomeDesignSystem.primary
+              : NeomeDesignSystem.textHint,
+        ),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: NeomeDesignSystem.primary, width: 2),
+        ),
+      ),
     );
   }
 }

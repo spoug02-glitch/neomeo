@@ -4,6 +4,7 @@
 // Includes "다시 알림 받기" toggle that allows a 2nd geofence notification today.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/checklist_item.dart';
@@ -20,7 +21,10 @@ final _itemsProvider =
 final _extraProvider = StateProvider<bool>((ref) => false);
 
 class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
-  ChecklistNotifier(String type) : super(_initializeItems(type));
+  ChecklistNotifier(String type) : super(_initializeItems(type)) {
+    // 저장된 체크 상태를 복원한다. 세션이 없으면 현재 상태를 저장한다.
+    _restoreFromPrefs();
+  }
 
   static List<ChecklistItem> _initializeItems(String type) {
     final defaults = defaultItemsFor(type);
@@ -39,6 +43,46 @@ class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
     return items;
   }
 
+  // ── 상태 저장 / 복원 ────────────────────────────────────────────────────────
+
+  /// 저장된 세션에서 checked 상태를 복원한다.
+  /// label이 일치하는 항목만 복원하므로 새 항목은 기본 미체크 상태를 유지한다.
+  Future<void> _restoreFromPrefs() async {
+    final saved = await PrefsService.getChecklistSession();
+    if (saved.isEmpty) {
+      _syncToPrefs();
+      return;
+    }
+    final savedMap = <String, bool>{
+      for (final s in saved)
+        s['label'] as String: s['checked'] as bool? ?? false,
+    };
+    state = state.map((item) {
+      final checked = savedMap[item.label];
+      if (checked != null) {
+        return ChecklistItem(
+          id: item.id,
+          label: item.label,
+          category: item.category,
+          checked: checked,
+        );
+      }
+      return item;
+    }).toList();
+    _syncToPrefs();
+  }
+
+  /// 현재 체크리스트 상태를 SharedPreferences에 저장한다 (fire-and-forget).
+  /// 외출 감지 콜백이 이 값을 읽어 알림 메시지를 결정한다.
+  void _syncToPrefs() {
+    final snapshot = state
+        .map((i) => {'label': i.label, 'checked': i.checked})
+        .toList();
+    PrefsService.saveChecklistSession(snapshot); // async, 결과 무시
+  }
+
+  // ── 상태 변이 ─────────────────────────────────────────────────────────────
+
   void toggle(String id) {
     state = state.map((item) {
       if (item.id == id) {
@@ -51,6 +95,7 @@ class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
       }
       return item;
     }).toList();
+    _syncToPrefs();
   }
 
   void add(String label, String category) {
@@ -63,10 +108,12 @@ class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
         category: category,
       )
     ];
+    _syncToPrefs();
   }
 
   void remove(String id) {
     state = state.where((i) => i.id != id).toList();
+    _syncToPrefs();
   }
 
   Future<void> addAutoItems() async {
@@ -84,7 +131,7 @@ class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
       final weatherData = await WeatherService.fetchWeather(activePlace.lat, activePlace.lon, apiKey);
       if (WeatherService.shouldBringUmbrella(weatherData)) {
         if (!state.any((item) => item.label == '우산')) {
-          add('우산', '준비물');
+          add('우산', '준비물'); // add() 내부에서 _syncToPrefs() 호출됨
         }
       }
     }
@@ -93,7 +140,7 @@ class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
       final airData = await WeatherService.fetchAirPollution(activePlace.lat, activePlace.lon, apiKey);
       if (WeatherService.shouldWearMask(airData)) {
         if (!state.any((item) => item.label == '마스크')) {
-          add('마스크', '준비물');
+          add('마스크', '준비물'); // add() 내부에서 _syncToPrefs() 호출됨
         }
       }
     }
@@ -135,6 +182,32 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 모든 항목이 체크되는 순간 완료 피드백 표시
+    ref.listen<List<ChecklistItem>>(
+      _itemsProvider(widget.outingType),
+      (previous, next) {
+        if (next.isEmpty) return;
+        final total = next.length;
+        final checked = next.where((i) => i.checked).length;
+        final prevChecked = previous?.where((i) => i.checked).length ?? 0;
+        if (checked == total && prevChecked < total) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                '오늘 준비 끝! 👍',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              backgroundColor: NeomeDesignSystem.primary,
+            ),
+          );
+        }
+      },
+    );
+
     final items = ref.watch(_itemsProvider(widget.outingType));
     final notifier = ref.read(_itemsProvider(widget.outingType).notifier);
     final checkedCount = items.where((i) => i.checked).length;
@@ -392,32 +465,40 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
 
   Widget _buildItemTile(ChecklistItem item, ChecklistNotifier notifier) {
     return ListTile(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        notifier.toggle(item.id);
+      },
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-      leading: GestureDetector(
-        onTap: () => notifier.toggle(item.id),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: item.checked ? NeomeDesignSystem.primary : Colors.white,
-            border: Border.all(
-              color: item.checked ? NeomeDesignSystem.primary : NeomeDesignSystem.border,
-              width: 2,
-            ),
+      leading: AnimatedContainer(
+        duration: const Duration(milliseconds: 175),
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: item.checked ? NeomeDesignSystem.primary : Colors.white,
+          border: Border.all(
+            color: item.checked ? NeomeDesignSystem.primary : NeomeDesignSystem.border,
+            width: 2,
           ),
-          child: item.checked ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 175),
+          child: item.checked
+              ? const Icon(Icons.check, key: ValueKey(true), size: 14, color: Colors.white)
+              : const SizedBox.shrink(key: ValueKey(false)),
         ),
       ),
-      title: Text(
-        item.label,
+      title: AnimatedDefaultTextStyle(
+        duration: const Duration(milliseconds: 175),
         style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w500,
           color: item.checked ? const Color(0xFFCBD5E1) : const Color(0xFF334155),
-          decoration: item.checked ? TextDecoration.lineThrough : null,
+          decoration: item.checked ? TextDecoration.lineThrough : TextDecoration.none,
+          decorationColor: const Color(0xFFCBD5E1),
         ),
+        child: Text(item.label),
       ),
       trailing: IconButton(
         icon: const Icon(Icons.close, size: 18, color: Color(0xFFCBD5E1)),
