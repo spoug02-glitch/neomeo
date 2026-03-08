@@ -187,6 +187,48 @@ class PrefsService {
     await p.remove(_kChecklistSession);
   }
 
+  // ── Alarm Mode (시간 vs 위치) ──────────────────────────────────────────────
+
+  static const _kAlarmMode = 'alarm_mode'; // 'time' | 'location'
+  static const _kAlarmTime = 'alarm_time'; // HH:mm (시간 기반 알람 시각)
+
+  // UT 추적 (사용자에게 노출 안 함)
+  static const _kUtAlarmTimeCount     = 'ut_alarm_time_count';
+  static const _kUtAlarmLocationCount = 'ut_alarm_location_count';
+
+  static Future<String?> getAlarmMode() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getString(_kAlarmMode);
+  }
+
+  static Future<void> setAlarmMode(String mode) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kAlarmMode, mode);
+    // UT 카운터 누적
+    final key = mode == 'time' ? _kUtAlarmTimeCount : _kUtAlarmLocationCount;
+    await p.setInt(key, (p.getInt(key) ?? 0) + 1);
+  }
+
+  static Future<String?> getAlarmTime() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getString(_kAlarmTime);
+  }
+
+  static Future<void> setAlarmTime(String hhmm) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kAlarmTime, hhmm);
+  }
+
+  /// [UT 전용] 알람 방식 선택 횟수를 반환한다.
+  /// 앱 UI에 노출하지 않는다.
+  static Future<Map<String, int>> getUtAlarmStats() async {
+    final p = await SharedPreferences.getInstance();
+    return {
+      'time':     p.getInt(_kUtAlarmTimeCount)     ?? 0,
+      'location': p.getInt(_kUtAlarmLocationCount) ?? 0,
+    };
+  }
+
   static Future<double> getTempSensitivity() async {
     final p = await SharedPreferences.getInstance();
     return p.getDouble(_kTempSensitivity) ?? 0.0;
