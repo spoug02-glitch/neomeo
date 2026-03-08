@@ -383,28 +383,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             label: '주소 (선택)',
             hint: '도로명 또는 지번 주소',
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _textField(
-                  controller: _latCtrl,
-                  label: '위도',
-                  hint: '37.123456',
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _textField(
-                  controller: _lonCtrl,
-                  label: '경도',
-                  hint: '127.123456',
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-            ],
-          ),
           const SizedBox(height: 8),
           TextButton.icon(
             onPressed: _isSaving ? null : _fetchCurrentLocation,

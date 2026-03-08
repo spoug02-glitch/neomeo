@@ -19,13 +19,16 @@ class ChecklistItem {
 Map<String, List<String>> defaultItemsFor(String outingType) {
   const Map<String, List<String>> itemsMap = {
     '출근': ['지갑', '교통카드', '열쇠', '폰', '신분증'],
+    '등교': ['가방', '교통카드', '폰', '숙제', '준비물'],
+    '학원': ['학원 교재', '교통카드', '폰', '필기도구'],
+    '기타': ['지갑', '폰', '열쇠'],
     '운동': ['운동복', '물병', '수건', '운동화', '이어폰'],
     '약속': ['지갑', '폰', '열쇠', '보조배터리'],
     '회의': ['노트북', '충전기', '명함', '노트/펜', '테블릿'],
   };
 
   return {
-    '준비물': itemsMap[outingType] ?? [],
+    '준비물': itemsMap[outingType] ?? ['지갑', '폰', '열쇠'],
     '행동': ['가스불', '형광등'],
   };
 }

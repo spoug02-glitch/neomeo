@@ -6,6 +6,7 @@ import '../features/checklist/checklist_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/calendar/calendar_screen.dart';
+import '../features/outing_select/outing_select_screen.dart';
 import '../data/prefs_service.dart';
 
 final appRouter = GoRouter(
@@ -33,6 +34,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/calendar',
       builder: (_, __) => const CalendarScreen(),
+    ),
+    GoRoute(
+      path: '/outing-select',
+      builder: (_, __) => const OutingSelectScreen(),
     ),
   ],
   redirect: (context, state) async {

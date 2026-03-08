@@ -15,7 +15,9 @@ void main() async {
   // Notifications — set up tap deeplink handler
   await NotificationService().init(
     onTap: (payload) {
-      if (payload == 'neomeo://checklist') {
+      if (payload == 'neomeo://outing-select') {
+        appRouter.go('/outing-select');
+      } else if (payload == 'neomeo://checklist') {
         appRouter.go('/checklist');
       }
     },

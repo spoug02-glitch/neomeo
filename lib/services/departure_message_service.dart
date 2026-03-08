@@ -29,19 +29,11 @@ class _NotifContent {
 class DepartureMessageService {
   DepartureMessageService._();
 
-  /// 외출 감지 시 호출. 메시지를 결정하고 알림을 발송한다.
+  /// 외출 감지 시 호출. 외출 유형 선택을 유도하는 알림을 발송한다.
   ///
-  /// - 보낼 내용이 없으면 DailyNotifGuard를 소비하지 않고 종료한다.
-  /// - DailyNotifGuard 확인 후 발송 (하루 제한 준수).
+  /// - DailyNotifGuard 확인 후 발송 (DND 및 하루 1회 제한 준수).
+  /// - 알림 탭 시 /outing-select → 체크리스트 화면으로 이동한다.
   static Future<void> composeAndSend() async {
-    final content = await _compose();
-
-    if (content == null) {
-      // 알려줄 내용 없음 → 하루 발송 횟수를 소비하지 않고 종료
-      debugPrint('[DepartureMsg] Nothing to notify — skipping');
-      return;
-    }
-
     // DailyNotifGuard: DND 및 하루 1회 제한 확인
     final allowed = await DailyNotifGuard.canNotify();
     if (!allowed) {
@@ -49,8 +41,8 @@ class DepartureMessageService {
       return;
     }
 
-    debugPrint('[DepartureMsg] Sending: "${content.title}"');
-    await NotificationService().showDepartureAlert(content.title, content.body);
+    debugPrint('[DepartureMsg] Sending departure prompt');
+    await NotificationService().showDeparturePrompt();
   }
 
   // ── 우선순위 결정 로직 ────────────────────────────────────────────────────

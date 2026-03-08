@@ -67,11 +67,32 @@ class NotificationService {
     );
 
     await _plugin.show(
-      0, // fixed id — 하루 슬롯당 하나의 알림만 유지
+      0,
       title,
       body,
       const NotificationDetails(android: androidDetails),
       payload: 'neomeo://checklist',
+    );
+  }
+
+  /// 지오펜스 이탈 감지 시 외출 유형 선택을 유도하는 알림.
+  /// 탭하면 /outing-select 화면으로 이동한다.
+  Future<void> showDeparturePrompt() async {
+    const androidDetails = AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDesc,
+      importance: Importance.high,
+      priority: Priority.high,
+      ticker: '너머',
+    );
+
+    await _plugin.show(
+      0,
+      '어디 가세요? 🚪',
+      '탭하면 외출 유형을 선택하고 체크리스트를 확인할 수 있어요',
+      const NotificationDetails(android: androidDetails),
+      payload: 'neomeo://outing-select',
     );
   }
 }

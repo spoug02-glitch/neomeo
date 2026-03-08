@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'place.dart';
+import '../app/app_config.dart';
 
 class PrefsService {
   static const _kPrepTime = 'prep_time';
@@ -107,7 +108,10 @@ class PrefsService {
 
   static Future<bool> isWeatherEnabled() async {
     final p = await SharedPreferences.getInstance();
-    return p.getBool(_kWeatherEnabled) ?? false;
+    // API 키가 번들되어 있으면 기본값 true
+    final defaultOn = AppConfig.weatherApiKey.isNotEmpty &&
+        AppConfig.weatherApiKey != 'YOUR_OWM_API_KEY_HERE';
+    return p.getBool(_kWeatherEnabled) ?? defaultOn;
   }
 
   static Future<void> setWeatherEnabled(bool enabled) async {
@@ -117,7 +121,9 @@ class PrefsService {
 
   static Future<bool> isDustEnabled() async {
     final p = await SharedPreferences.getInstance();
-    return p.getBool(_kDustEnabled) ?? false;
+    final defaultOn = AppConfig.weatherApiKey.isNotEmpty &&
+        AppConfig.weatherApiKey != 'YOUR_OWM_API_KEY_HERE';
+    return p.getBool(_kDustEnabled) ?? defaultOn;
   }
 
   static Future<void> setDustEnabled(bool enabled) async {
@@ -127,7 +133,9 @@ class PrefsService {
 
   static Future<String> getWeatherApiKey() async {
     final p = await SharedPreferences.getInstance();
-    return p.getString(_kWeatherApiKey) ?? '';
+    final stored = p.getString(_kWeatherApiKey) ?? '';
+    // 저장된 키가 없으면 앱 번들 키를 사용한다
+    return stored.isNotEmpty ? stored : AppConfig.weatherApiKey;
   }
 
   static Future<void> setWeatherApiKey(String key) async {

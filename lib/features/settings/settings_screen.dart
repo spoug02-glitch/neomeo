@@ -30,7 +30,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _weatherEnabled = false;
   bool _dustEnabled = false;
   double _tempSensitivity = 0.0;
-  final _apiKeyCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -40,7 +39,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
-    _apiKeyCtrl.dispose();
     super.dispose();
   }
 
@@ -57,7 +55,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final weatherE = await PrefsService.isWeatherEnabled();
   final dustE = await PrefsService.isDustEnabled();
   final tempS = await PrefsService.getTempSensitivity();
-  final apiKey = await PrefsService.getWeatherApiKey();
 
   if (mounted) {
     setState(() {
@@ -67,13 +64,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _dndEnabled = dndE;
       _dndStart = dndS;
       _dndEnd = dndEnd;
-
-      // ✅ setState 안에서는 이미 받아둔 값만 할당
       _weatherEnabled = weatherE;
       _dustEnabled = dustE;
       _tempSensitivity = tempS;
-      _apiKeyCtrl.text = apiKey;
-
       _isLoading = false;
     });
   }
@@ -135,13 +128,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _updateSensitivity(double val) async {
     await PrefsService.setTempSensitivity(val);
     setState(() => _tempSensitivity = val);
-  }
-
-  Future<void> _saveApiKey() async {
-    await PrefsService.setWeatherApiKey(_apiKeyCtrl.text.trim());
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('API 키가 저장되었습니다.')));
-    }
   }
 
   Future<void> _addPlace() async {
@@ -375,33 +361,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             Text('더위를 많이 탐', style: TextStyle(fontSize: 11, color: Colors.grey)),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        const Text('OpenWeatherMap API Key', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _apiKeyCtrl,
-                                decoration: const InputDecoration(
-                                  hintText: 'API 키를 입력하세요',
-                                  isDense: true,
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: _saveApiKey,
-                              child: const Text('저장'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          '날씨 정보를 가져오기 위해 API 키가 필요합니다.',
-                          style: TextStyle(fontSize: 11, color: Colors.grey),
-                        ),
                       ],
                     ),
                   ),
@@ -431,7 +390,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     color: isActive ? NeomeDesignSystem.primary.withOpacity(0.06) : Colors.white,
                     child: ListTile(
                       title: Text(p.name, style: TextStyle(fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
-                      subtitle: Text('${p.lat}, ${p.lon}'),
+                      subtitle: p.address != null ? Text(p.address!) : null,
                       leading: Radio<String>(
                         value: p.id,
                         groupValue: _activePlaceId,

@@ -1,25 +1,14 @@
 // lib/features/home/home_screen.dart
-//
-// Mirrors the web index.html home screen:
-//   • 너머 title + sub
-//   • Outing type grid (출근, 운동, 약속, 직접 추가)
-//   • Bottom nav: 홈 | 설정
-
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/design_system.dart';
 import '../../services/geofence_service_wrapper.dart';
 import '../../services/weather_service.dart';
-import '../../services/calendar_service.dart';
 import '../../data/prefs_service.dart';
-import '../../data/place.dart';
 
 const _outingTypes = [
   ('출근', '🏢'),
-  ('운동', '🏃'),
-  ('약속', '🤝'),
-  ('회의', '💼'),
   ('직접 추가', '✏️'),
 ];
 
@@ -35,45 +24,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _currentWeather;
   String _clothingRec = '';
   bool _isLoadingWeather = true;
-  final CalendarService _calendarService = CalendarService();
-  String? _suggestedType;
-  bool _isCalendarSynced = false;
 
   @override
   void initState() {
     super.initState();
     _checkHomeSet();
     _loadWeather();
-    _checkCalendar();
-  }
-
-  Future<void> _checkCalendar() async {
-    final events = await _calendarService.getTodayEvents();
-    if (events.isNotEmpty) {
-      final now = DateTime.now();
-      // Find the next upcoming event
-      final nextEvent = events.where((e) {
-        final start = e.start?.dateTime ?? e.start?.date;
-        return start != null && start.isAfter(now);
-      }).firstOrNull ?? events.first;
-
-      setState(() {
-        _suggestedType = _calendarService.classifyEvent(nextEvent);
-        _isCalendarSynced = true;
-      });
-    }
-  }
-
-  Future<void> _syncCalendar() async {
-    final user = await _calendarService.signIn();
-    if (user != null) {
-      await _checkCalendar();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('캘린더 일정을 성공적으로 가져왔습니다.')),
-        );
-      }
-    }
   }
 
   Future<void> _loadWeather() async {
@@ -93,7 +49,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
       String rec = '';
       if (forecast != null && forecast.isNotEmpty) {
-        // Calculate average temp for next 12 hours (4 forecast items, each 3h)
         final next12h = forecast.take(4).toList();
         final temps = next12h.map((e) => (e['main']['temp'] as num).toDouble()).toList();
         final avgTemp = temps.reduce((a, b) => a + b) / temps.length;
@@ -102,12 +57,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final adjustedAvg = avgTemp + sensitivity;
         rec = WeatherService.calculateRecommendedClothes(adjustedAvg);
-        
-        // Add variability suggestion
+
         if (maxTemp - minTemp >= 8) {
           rec = '$rec + 가디건이나 겉옷 (일교차 대비)';
         }
-
         rec = '$rec (기온: ${minTemp.toStringAsFixed(0)}°~${maxTemp.toStringAsFixed(0)}°)';
       }
 
@@ -124,8 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _checkHomeSet() async {
-    final set = await 
-    GeofenceServiceWrapper.isHomeSet();
+    final set = await GeofenceServiceWrapper.isHomeSet();
     if (mounted) setState(() => _homeSet = set);
   }
 
@@ -195,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // ── Weather & Clothing Recommendation ──────
+                    // ── Weather Card ──────────────────────────
                     if (!_isLoadingWeather && _currentWeather != null)
                       _WeatherCard(
                         temp: (_currentWeather!['main']['temp'] as num).toDouble(),
@@ -203,24 +155,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         iconCode: _currentWeather!['weather'][0]['icon'],
                         clothingRec: _clothingRec,
                       ),
-                    if (!_isLoadingWeather && _currentWeather != null) const SizedBox(height: 16),
+                    if (!_isLoadingWeather && _currentWeather != null)
+                      const SizedBox(height: 16),
 
-                     // ── Geofence setup card ───────────────────
+                    // ── Geofence setup banner ─────────────────
                     if (!_homeSet)
                       _GeofenceSetupBanner(
                         onTap: () async {
                           await context.push('/permission-setup');
                           _checkHomeSet();
                         },
-                      ),
-                    
-                    const SizedBox(height: 16),
-
-                    // ── Calendar Sync Banner ──────────────────
-                    if (_isCalendarSynced && _suggestedType != null)
-                      _CalendarSuggestionBanner(
-                        type: _suggestedType!,
-                        onTap: () => _onOutingTap(_suggestedType!, ''),
                       ),
 
                     const SizedBox(height: 16),
@@ -295,7 +239,8 @@ class _WeatherCard extends StatelessWidget {
                   'https://openweathermap.org/img/wn/$iconCode@2x.png',
                   width: 50,
                   height: 50,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.wb_sunny_outlined, size: 40, color: Colors.orange),
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.wb_sunny_outlined, size: 40, color: Colors.orange),
                 ),
                 const SizedBox(width: 12),
                 Column(
@@ -303,7 +248,8 @@ class _WeatherCard extends StatelessWidget {
                   children: [
                     Text(
                       '${temp.toStringAsFixed(1)}°C',
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
+                      style: const TextStyle(
+                          fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
                     ),
                     Text(
                       description,
@@ -317,18 +263,18 @@ class _WeatherCard extends StatelessWidget {
               const Divider(height: 24),
               Row(
                 children: [
-                   const Icon(Icons.checkroom, size: 18, color: NeomeDesignSystem.primary),
-                   const SizedBox(width: 8),
-                   Expanded(
-                     child: Text(
-                       '오늘의 옷차림: $clothingRec',
-                       style: const TextStyle(
-                         fontSize: 13,
-                         fontWeight: FontWeight.w600,
-                         color: Color(0xFF475569),
-                       ),
-                     ),
-                   ),
+                  const Icon(Icons.checkroom, size: 18, color: NeomeDesignSystem.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '오늘의 옷차림: $clothingRec',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -431,34 +377,6 @@ class _OutingTile extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-
-
-
-class _CalendarSuggestionBanner extends StatelessWidget {
-  final String type;
-  final VoidCallback onTap;
-  const _CalendarSuggestionBanner({required this.type, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: NeomeDesignSystem.primary,
-      child: ListTile(
-        leading: const Icon(Icons.auto_awesome, color: Colors.white),
-        title: Text(
-          '다음 일정은 "$type"인가요?',
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        subtitle: const Text(
-          '탭하여 바로 체크리스트 확인하기 →',
-          style: TextStyle(color: Colors.white70, fontSize: 12),
-        ),
-        onTap: onTap,
       ),
     );
   }
