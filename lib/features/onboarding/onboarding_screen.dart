@@ -1,6 +1,8 @@
 // lib/features/onboarding/onboarding_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 import '../../data/prefs_service.dart';
@@ -9,7 +11,8 @@ import 'package:fl_location/fl_location.dart';
 import '../../app/design_system.dart';
 import '../../services/geofence_service_wrapper.dart';
 
-enum _LocationMode { initial, fetching, form }
+// locationPerm → initial → fetching → (confirmation sheet) → form
+enum _LocationMode { locationPerm, initial, fetching, form }
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -20,21 +23,13 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   // 0: Welcome
-  // 1: Permissions
-  // 2: AlarmMode ("시간" vs "위치")
-  // 3: TimeAlarm (시간 선택) OR Location (위치 설정) — _alarmMode에 따라 분기
-  // 4: PrepTime (준비 시작 시간)
-  // 5: Done
+  // 1: Permissions (알람)
+  // 2: Location
+  // 3: Done
   int _step = 0;
 
-  // ── AlarmMode ──────────────────────────────────────────────────────────────
-  String? _alarmMode; // 'time' | 'location'
-
-  // ── TimeAlarm ──────────────────────────────────────────────────────────────
-  String _alarmTime = '08:00';
-
   // ── Location step ──────────────────────────────────────────────────────────
-  _LocationMode _locationMode = _LocationMode.initial;
+  _LocationMode _locationMode = _LocationMode.locationPerm;
   bool _isSaving = false;
   bool _showFetchAlternative = false;
 
@@ -44,11 +39,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _lonCtrl     = TextEditingController();
   final _nameFocusNode = FocusNode();
 
-  // ── PrepTime ───────────────────────────────────────────────────────────────
-  String _prepTime = '07:30';
-
-  // 프로그레스 바를 표시하는 마지막 step (Done 직전)
-  static const int _totalSteps = 5;
+  static const int _totalSteps = 3; // Welcome / 알람 / 위치
 
   @override
   void initState() {
@@ -70,55 +61,67 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _goToStep(int step) => setState(() => _step = step);
 
-  /// 위치/시간 설정을 건너뛰고 PrepTime으로 이동
-  void _skipToPrep() => setState(() => _step = 4);
-
-  Future<void> _skipOnboarding() async {
-    await PrefsService.markOnboardingDone();
-    if (mounted) context.go('/home');
-  }
-
   // ── 권한 ───────────────────────────────────────────────────────────────────
 
-  Future<void> _requestPermissions() async {
-    await Permission.location.request();
+  Future<void> _requestNotificationPermission() async {
     await Permission.notification.request();
     await Permission.ignoreBatteryOptimizations.request();
-    _goToStep(2);
-  }
-
-  // ── AlarmMode 선택 ─────────────────────────────────────────────────────────
-
-  Future<void> _selectAlarmMode(String mode) async {
-    await PrefsService.setAlarmMode(mode); // UT 카운터 누적 포함
     setState(() {
-      _alarmMode = mode;
-      _step = 3;
+      _step = 2;
+      _locationMode = _LocationMode.locationPerm;
     });
   }
 
-  // ── TimeAlarm ──────────────────────────────────────────────────────────────
-
-  Future<void> _pickAlarmTime() async {
-    final parts = _alarmTime.split(':');
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(
-        hour: int.parse(parts[0]),
-        minute: int.parse(parts[1]),
-      ),
-    );
-    if (picked != null) {
-      setState(() {
-        _alarmTime =
-            '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-      });
+  /// Android 11+ 2단계 위치 권한 플로우
+  Future<void> _requestLocationPermission() async {
+    final status = await Permission.locationWhenInUse.request();
+    if (status.isGranted) {
+      final bgStatus = await Permission.locationAlways.status;
+      if (!bgStatus.isGranted && mounted) {
+        await _showAlwaysAllowGuide();
+      }
     }
+    if (mounted) setState(() => _locationMode = _LocationMode.initial);
   }
 
-  Future<void> _saveAlarmTime() async {
-    await PrefsService.setAlarmTime(_alarmTime);
-    _skipToPrep();
+  /// "항상 허용" 설정 앱 안내 다이얼로그
+  Future<void> _showAlwaysAllowGuide() async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('위치 "항상 허용" 설정'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '앱이 꺼진 상태에서도 집 이탈을 감지하려면\n"항상 허용"이 필요해요.\n',
+            ),
+            Text('설정 방법:', style: TextStyle(fontWeight: FontWeight.w700)),
+            SizedBox(height: 6),
+            Text('① [설정 열기] 버튼을 눌러주세요'),
+            Text('② 화면에서 [권한] 선택'),
+            Text('③ [위치] 선택'),
+            Text('④ "항상 허용" 선택'),
+            SizedBox(height: 10),
+            Text(
+              '경로: 앱 정보 › 권한 › 위치 › 항상 허용',
+              style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await openAppSettings();
+            },
+            child: const Text('설정 열기'),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── 위치 가져오기 ──────────────────────────────────────────────────────────
@@ -144,14 +147,33 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       location ??= await FlLocation.getLocation(accuracy: LocationAccuracy.high);
 
       if (!mounted) return;
-      _latCtrl.text = location!.latitude.toStringAsFixed(6);
-      _lonCtrl.text = location.longitude.toStringAsFixed(6);
-      setState(() => _locationMode = _LocationMode.form);
-      _showSnack('현재 위치를 가져왔어요!');
+
+      final lat = location.latitude;
+      final lon = location.longitude;
+      _latCtrl.text = lat.toStringAsFixed(6);
+      _lonCtrl.text = lon.toStringAsFixed(6);
+
+      // fetching 표시 종료 후 확인 시트 표시
+      setState(() => _locationMode = _LocationMode.initial);
+
+      final confirmed = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => _LocationConfirmBottomSheet(lat: lat, lon: lon),
+      );
+
+      if (confirmed == true && mounted) {
+        await _savePlace();
+      }
+      // confirmed == false 또는 닫힘 → initial 상태 유지
     } catch (e) {
       if (!mounted) return;
       setState(() => _locationMode = _LocationMode.form);
-      _showSnack('위치를 가져오지 못했어요. 직접 입력하거나 나중에 설정해주세요.');
+      _showSnack('위치를 가져오지 못했어요. 직접 입력해주세요.');
     }
   }
 
@@ -184,36 +206,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     await PrefsService.setActivePlaceId(newPlace.id);
     await GeofenceServiceWrapper().startMonitoringActivePlace();
 
-    if (mounted) setState(() { _isSaving = false; _step = 4; });
-  }
-
-  // ── PrepTime ───────────────────────────────────────────────────────────────
-
-  static const _timePresets = [
-    '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00',
-  ];
-
-  Future<void> _pickPrepTime() async {
-    final parts = _prepTime.split(':');
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(
-        hour: int.parse(parts[0]),
-        minute: int.parse(parts[1]),
-      ),
-    );
-    if (picked != null) {
-      setState(() {
-        _prepTime =
-            '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-      });
-    }
-  }
-
-  Future<void> _savePrepTime() async {
-    await PrefsService.setPrepTime(_prepTime);
+    // 날씨/미세먼지 자동 활성화
+    await PrefsService.setWeatherEnabled(true);
+    await PrefsService.setDustEnabled(true);
     await PrefsService.markOnboardingDone();
-    if (mounted) setState(() => _step = 5);
+
+    if (mounted) setState(() { _isSaving = false; _step = 3; }); // → Done
   }
 
   void _showSnack(String msg) {
@@ -229,7 +227,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            if (_step < 5) _buildProgressBar(),
+            if (_step < 3) _buildProgressBar(),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
@@ -276,12 +274,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     switch (_step) {
       case 0: return _buildWelcomeStep();
       case 1: return _buildPermissionStep();
-      case 2: return _buildAlarmModeStep();
-      case 3: return _alarmMode == 'time'
-          ? _buildTimeAlarmStep()
-          : _buildLocationStep();
-      case 4: return _buildPrepTimeStep();
-      case 5: return _buildDoneStep();
+      case 2: return _buildLocationStep();
+      case 3: return _buildDoneStep();
       default: return const SizedBox();
     }
   }
@@ -301,7 +295,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         const SizedBox(height: 16),
         Text(
-          '집이나 회사를 나설 때,\n챙겨야 할 준비물을 잊지 않도록 도와드려요.',
+          '외출할 때 챙겨야 할 것들,\n혹시 빠뜨리진 않았을까 불안하셨나요?\n너머는 그 불안을 덜어주는 체크리스트 앱이에요.',
           textAlign: TextAlign.center,
           style: NeomeDesignSystem.body1.copyWith(
             color: NeomeDesignSystem.textSub,
@@ -314,18 +308,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  // ── Step 1: 권한 ───────────────────────────────────────────────────────────
+  // ── Step 1: 알람 권한 ──────────────────────────────────────────────────────
 
   Widget _buildPermissionStep() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text('📍', style: TextStyle(fontSize: 60)),
+        const Text('🔔', style: TextStyle(fontSize: 60)),
         const SizedBox(height: 24),
-        Text('권한 설정이 필요해요', style: NeomeDesignSystem.heading1, textAlign: TextAlign.center),
+        Text('알람 권한이 필요해요', style: NeomeDesignSystem.heading1, textAlign: TextAlign.center),
         const SizedBox(height: 16),
         Text(
-          '외출 감지와 알림을 위해 위치 권한과 알림 권한이 필요해요.\n나중에 설정에서도 변경할 수 있어요.',
+          '알람은 너머의 핵심 기능이에요.\n체크리스트 알림을 받으려면 알람 권한이 꼭 필요해요.',
           textAlign: TextAlign.center,
           style: NeomeDesignSystem.body1.copyWith(
             color: NeomeDesignSystem.textSub,
@@ -333,143 +327,45 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
         ),
         const Spacer(),
-        _primaryButton('권한 허용하기', _requestPermissions),
-        const SizedBox(height: 12),
-        _textButton('나중에 할게요', () => _goToStep(2)),
+        _primaryButton('알람 권한 설정하기', _requestNotificationPermission),
       ],
     );
   }
 
-  // ── Step 2: 알람 방식 선택 ─────────────────────────────────────────────────
-
-  Widget _buildAlarmModeStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 8),
-        const Text('🔔', style: TextStyle(fontSize: 52)),
-        const SizedBox(height: 20),
-        Text('알람은 언제 나오는 게 좋으세요?', style: NeomeDesignSystem.heading1),
-        const SizedBox(height: 8),
-        Text(
-          '어떤 방식이 더 편하신지 골라주세요.',
-          style: NeomeDesignSystem.body1.copyWith(
-            color: NeomeDesignSystem.textSub,
-            fontWeight: FontWeight.normal,
-          ),
-        ),
-        const SizedBox(height: 36),
-        _AlarmModeCard(
-          emoji: '⏰',
-          title: '시간',
-          subtitle: '매일 정해진 시간에 알림을 받아요',
-          onTap: () => _selectAlarmMode('time'),
-        ),
-        const SizedBox(height: 14),
-        _AlarmModeCard(
-          emoji: '📍',
-          title: '위치',
-          subtitle: '집을 나설 때 자동으로 알림을 받아요',
-          onTap: () => _selectAlarmMode('location'),
-        ),
-        const Spacer(),
-        _textButton('나중에 할게요', _skipToPrep),
-      ],
-    );
-  }
-
-  // ── Step 3-A: 시간 알람 설정 ───────────────────────────────────────────────
-
-  static const _alarmPresets = [
-    '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00',
-  ];
-
-  Widget _buildTimeAlarmStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 8),
-        const Text('⏰', style: TextStyle(fontSize: 52)),
-        const SizedBox(height: 20),
-        Text('언제 체크리스트 알람을 드릴까요?', style: NeomeDesignSystem.heading1),
-        const SizedBox(height: 8),
-        Text(
-          '매일 이 시간에 외출 준비 알림을 보내드려요.',
-          style: NeomeDesignSystem.body1.copyWith(
-            color: NeomeDesignSystem.textSub,
-            fontWeight: FontWeight.normal,
-          ),
-        ),
-        const SizedBox(height: 32),
-        Center(
-          child: GestureDetector(
-            onTap: _pickAlarmTime,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              decoration: BoxDecoration(
-                color: NeomeDesignSystem.primary.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: NeomeDesignSystem.primary, width: 1.5),
-              ),
-              child: Text(
-                _alarmTime,
-                style: const TextStyle(
-                  fontSize: 40,
-                  fontWeight: FontWeight.w800,
-                  color: NeomeDesignSystem.primary,
-                  letterSpacing: 2,
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          alignment: WrapAlignment.center,
-          children: _alarmPresets.map((t) {
-            final selected = t == _alarmTime;
-            return ChoiceChip(
-              label: Text(t),
-              selected: selected,
-              onSelected: (_) => setState(() => _alarmTime = t),
-              selectedColor: NeomeDesignSystem.primary,
-              labelStyle: TextStyle(
-                color: selected ? Colors.white : const Color(0xFF64748B),
-                fontWeight: FontWeight.w600,
-              ),
-              backgroundColor: const Color(0xFFF1F5F9),
-              side: BorderSide.none,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 8),
-        Center(
-          child: TextButton.icon(
-            onPressed: _pickAlarmTime,
-            icon: const Icon(Icons.access_time, size: 16),
-            label: const Text('직접 선택'),
-            style: TextButton.styleFrom(foregroundColor: NeomeDesignSystem.textSub),
-          ),
-        ),
-        const Spacer(),
-        _primaryButton('다음', _saveAlarmTime),
-        const SizedBox(height: 12),
-        _textButton('나중에 설정할게요', _skipToPrep),
-      ],
-    );
-  }
-
-  // ── Step 3-B: 위치 설정 ────────────────────────────────────────────────────
+  // ── Step 2: 위치 설정 ──────────────────────────────────────────────────────
 
   Widget _buildLocationStep() {
     switch (_locationMode) {
-      case _LocationMode.initial:  return _buildLocationInitial();
-      case _LocationMode.fetching: return _buildLocationFetching();
-      case _LocationMode.form:     return _buildLocationForm();
+      case _LocationMode.locationPerm: return _buildLocationPermStep();
+      case _LocationMode.initial:      return _buildLocationInitial();
+      case _LocationMode.fetching:     return _buildLocationFetching();
+      case _LocationMode.form:         return _buildLocationForm();
     }
+  }
+
+  Widget _buildLocationPermStep() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text('📍', style: TextStyle(fontSize: 60)),
+        const SizedBox(height: 24),
+        Text('위치 권한이 필요해요', style: NeomeDesignSystem.heading1, textAlign: TextAlign.center),
+        const SizedBox(height: 16),
+        Text(
+          '집을 나갈 때 알람을 받으려면 위치 권한이 필요해요.\n\n'
+          '① 먼저 "앱 사용 중 허용"을 선택해주세요.\n'
+          '② 이후 설정 화면에서 "항상 허용"으로\n'
+          '   변경하면 앱이 꺼진 상태에서도 감지돼요.',
+          textAlign: TextAlign.center,
+          style: NeomeDesignSystem.body1.copyWith(
+            color: NeomeDesignSystem.textSub,
+            fontWeight: FontWeight.normal,
+          ),
+        ),
+        const Spacer(),
+        _primaryButton('위치 권한 설정하기', _requestLocationPermission, icon: Icons.location_on),
+      ],
+    );
   }
 
   Widget _buildLocationInitial() {
@@ -481,7 +377,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         Text('집 위치를 설정해주세요', style: NeomeDesignSystem.heading1, textAlign: TextAlign.center),
         const SizedBox(height: 16),
         Text(
-          '외출 감지를 위해 집 위치를 알아야 해요.\n지금 바로 설정하거나 나중에 하실 수 있어요.',
+          '외출 감지를 위해 집 위치를 알아야 해요.',
           textAlign: TextAlign.center,
           style: NeomeDesignSystem.body1.copyWith(
             color: NeomeDesignSystem.textSub,
@@ -489,11 +385,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
         ),
         const Spacer(),
-        _primaryButton('현재 위치 가져오기', _fetchCurrentLocation, icon: Icons.my_location),
+        _primaryButton('현재 위치 확인', _fetchCurrentLocation, icon: Icons.my_location),
         const SizedBox(height: 12),
         _outlinedButton('직접 설정하기', _useManualInput),
-        const SizedBox(height: 12),
-        _textButton('나중에 할게요', _skipToPrep),
       ],
     );
   }
@@ -551,97 +445,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           const SizedBox(height: 24),
           _primaryButton('등록하고 시작하기', _isSaving ? null : _savePlace, loading: _isSaving),
-          const SizedBox(height: 12),
-          _textButton('나중에 할게요', _isSaving ? null : _skipToPrep),
           const SizedBox(height: 16),
         ],
       ),
     );
   }
 
-  // ── Step 4: 준비 시작 시간 ─────────────────────────────────────────────────
-
-  Widget _buildPrepTimeStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 8),
-        const Text('⏰', style: TextStyle(fontSize: 52)),
-        const SizedBox(height: 20),
-        Text('외출 준비는 언제 시작하세요?', style: NeomeDesignSystem.heading1),
-        const SizedBox(height: 8),
-        Text(
-          '이 시간에 맞춰 준비할 수 있도록 도와드려요.',
-          style: NeomeDesignSystem.body1.copyWith(
-            color: NeomeDesignSystem.textSub, fontWeight: FontWeight.normal,
-          ),
-        ),
-        const SizedBox(height: 32),
-        Center(
-          child: GestureDetector(
-            onTap: _pickPrepTime,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              decoration: BoxDecoration(
-                color: NeomeDesignSystem.primary.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: NeomeDesignSystem.primary, width: 1.5),
-              ),
-              child: Text(
-                _prepTime,
-                style: const TextStyle(
-                  fontSize: 40,
-                  fontWeight: FontWeight.w800,
-                  color: NeomeDesignSystem.primary,
-                  letterSpacing: 2,
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          alignment: WrapAlignment.center,
-          children: _timePresets.map((t) {
-            final selected = t == _prepTime;
-            return ChoiceChip(
-              label: Text(t),
-              selected: selected,
-              onSelected: (_) => setState(() => _prepTime = t),
-              selectedColor: NeomeDesignSystem.primary,
-              labelStyle: TextStyle(
-                color: selected ? Colors.white : const Color(0xFF64748B),
-                fontWeight: FontWeight.w600,
-              ),
-              backgroundColor: const Color(0xFFF1F5F9),
-              side: BorderSide.none,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 8),
-        Center(
-          child: TextButton.icon(
-            onPressed: _pickPrepTime,
-            icon: const Icon(Icons.access_time, size: 16),
-            label: const Text('직접 선택'),
-            style: TextButton.styleFrom(foregroundColor: NeomeDesignSystem.textSub),
-          ),
-        ),
-        const Spacer(),
-        _primaryButton('다음', _savePrepTime),
-        const SizedBox(height: 12),
-        _textButton('나중에 설정할게요', () async {
-          await PrefsService.markOnboardingDone();
-          if (mounted) setState(() => _step = 5);
-        }),
-      ],
-    );
-  }
-
-  // ── Step 5: 완료 ───────────────────────────────────────────────────────────
+  // ── Step 3: 완료 ───────────────────────────────────────────────────────────
 
   Widget _buildDoneStep() {
     return Column(
@@ -745,59 +555,111 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-// ── AlarmMode 선택 카드 ────────────────────────────────────────────────────────
+// ── 위치 확인 바텀시트 ─────────────────────────────────────────────────────────
 
-class _AlarmModeCard extends StatelessWidget {
-  final String emoji;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
+class _LocationConfirmBottomSheet extends StatelessWidget {
+  final double lat;
+  final double lon;
 
-  const _AlarmModeCard({
-    required this.emoji,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
+  const _LocationConfirmBottomSheet({required this.lat, required this.lon});
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
-        ),
-        child: Row(
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 32)),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1E293B),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                  ),
-                ],
+            // 드래그 핸들
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
+            const SizedBox(height: 20),
+            Text(
+              '여기가 집인가요?',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${lat.toStringAsFixed(5)}, ${lon.toStringAsFixed(5)}',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+            ),
+            const SizedBox(height: 16),
+            // 지도
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: SizedBox(
+                height: 260,
+                child: FlutterMap(
+                  options: MapOptions(
+                    initialCenter: LatLng(lat, lon),
+                    initialZoom: 15,
+                    interactionOptions: const InteractionOptions(
+                      flags: InteractiveFlag.none,
+                    ),
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.hyoni.neomeo',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: LatLng(lat, lon),
+                          width: 48,
+                          height: 48,
+                          child: const Icon(
+                            Icons.location_pin,
+                            color: Color(0xFFEF4444),
+                            size: 48,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 50),
+                      side: BorderSide(color: Colors.grey.shade300),
+                      foregroundColor: NeomeDesignSystem.textSub,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: const Text('다시 가져오기'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 50),
+                      backgroundColor: NeomeDesignSystem.primary,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: const Text('맞아요'),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
