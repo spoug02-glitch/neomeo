@@ -12,6 +12,7 @@ import '../../data/prefs_service.dart';
 import '../../app/design_system.dart';
 import '../../services/daily_notif_guard.dart';
 import '../../services/weather_service.dart';
+import '../../utils/recommendation_service.dart';
 
 final _itemsProvider =
     StateNotifierProvider.family<ChecklistNotifier, List<ChecklistItem>, String>(
@@ -32,6 +33,7 @@ class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
 
     defaults.forEach((category, labels) {
       for (final label in labels) {
+        if (items.length >= maxItems) break;
         items.add(ChecklistItem(
           id: '${DateTime.now().microsecondsSinceEpoch}_${items.length}',
           label: label,
@@ -98,8 +100,13 @@ class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
     _syncToPrefs();
   }
 
+  static const maxItems = 5;
+
+  bool get isFull => state.length >= maxItems;
+
   void add(String label, String category) {
     if (label.trim().isEmpty) return;
+    if (isFull) return;
     state = [
       ...state,
       ChecklistItem(
@@ -145,6 +152,16 @@ class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
       }
     }
   }
+
+  /// 설정 상태 기반 추천 아이템을 체크리스트에 자동 추가한다 (mock, API 호출 없음).
+  Future<void> addRecommendedItems() async {
+    final recs = await RecommendationService.getTodayRecommendations();
+    for (final item in recs) {
+      if (!state.any((i) => i.label == item)) {
+        add(item, '준비물');
+      }
+    }
+  }
 }
 
 class ChecklistScreen extends ConsumerStatefulWidget {
@@ -157,6 +174,7 @@ class ChecklistScreen extends ConsumerStatefulWidget {
 
 class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
   final _addCtrl = TextEditingController();
+  String _selectedCategory = '준비물';
 
   @override
   void initState() {
@@ -170,7 +188,9 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
     
     // Trigger auto-items check
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(_itemsProvider(widget.outingType).notifier).addAutoItems();
+      final notifier = ref.read(_itemsProvider(widget.outingType).notifier);
+      notifier.addRecommendedItems();
+      notifier.addAutoItems();
     });
   }
 
@@ -325,38 +345,65 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                      child: Card(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _addCtrl,
-                                  decoration: const InputDecoration(
-                                    hintText: '준비물 추가...',
-                                    hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: 14),
-                                    border: InputBorder.none,
-                                  ),
-                                  onSubmitted: (v) {
-                                    notifier.add(v, '준비물');
-                                    _addCtrl.clear();
-                                  },
-                                ),
-                                ),
-                              TextButton(
-                                onPressed: () {
-                                  if (_addCtrl.text.isNotEmpty) {
-                                    notifier.add(_addCtrl.text, '준비물');
-                                    _addCtrl.clear();
-                                  }
-                                },
-                                child: const Text('추가'),
+                      child: total >= ChecklistNotifier.maxItems
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                '항목은 최대 ${ChecklistNotifier.maxItems}개까지 추가할 수 있어요',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 12, color: Color(0xFFCBD5E1)),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
+                            )
+                          : Card(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                                child: Row(
+                                  children: [
+                                    // 카테고리 드롭다운
+                                    DropdownButton<String>(
+                                      value: _selectedCategory,
+                                      underline: const SizedBox(),
+                                      isDense: true,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: NeomeDesignSystem.primary,
+                                      ),
+                                      items: const [
+                                        DropdownMenuItem(value: '준비물', child: Text('준비물')),
+                                        DropdownMenuItem(value: '행동', child: Text('행동')),
+                                      ],
+                                      onChanged: (v) => setState(() => _selectedCategory = v!),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // 입력 필드
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _addCtrl,
+                                        decoration: InputDecoration(
+                                          hintText: '$_selectedCategory 추가...',
+                                          hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 14),
+                                          border: InputBorder.none,
+                                        ),
+                                        onSubmitted: (v) {
+                                          notifier.add(v, _selectedCategory);
+                                          _addCtrl.clear();
+                                        },
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        if (_addCtrl.text.isNotEmpty) {
+                                          notifier.add(_addCtrl.text, _selectedCategory);
+                                          _addCtrl.clear();
+                                        }
+                                      },
+                                      child: const Text('추가'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                     ),
                   ),
 

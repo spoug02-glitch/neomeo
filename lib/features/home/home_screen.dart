@@ -2,15 +2,14 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fl_location/fl_location.dart';
+import 'package:uuid/uuid.dart';
 import '../../app/design_system.dart';
 import '../../services/geofence_service_wrapper.dart';
 import '../../services/weather_service.dart';
 import '../../data/prefs_service.dart';
-
-const _outingTypes = [
-  ('출근', '🏢'),
-  ('직접 추가', '✏️'),
-];
+import '../../data/place.dart';
+import '../../utils/recommendation_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,12 +23,22 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _currentWeather;
   String _clothingRec = '';
   bool _isLoadingWeather = true;
+  bool _umbrellaRec = false;
+  bool _maskRec = false;
+  bool _isSavingLocation = false;
+  List<String> _recommendations = [];
 
   @override
   void initState() {
     super.initState();
     _checkHomeSet();
     _loadWeather();
+    _loadRecommendations();
+  }
+
+  Future<void> _loadRecommendations() async {
+    final recs = await RecommendationService.getTodayRecommendations();
+    if (mounted) setState(() => _recommendations = recs);
   }
 
   Future<void> _loadWeather() async {
@@ -64,10 +73,14 @@ class _HomeScreenState extends State<HomeScreen> {
         rec = '$rec (기온: ${minTemp.toStringAsFixed(0)}°~${maxTemp.toStringAsFixed(0)}°)';
       }
 
+      final airData = await WeatherService.fetchAirPollution(activePlace.lat, activePlace.lon, apiKey);
+
       if (mounted) {
         setState(() {
           _currentWeather = weather;
           _clothingRec = rec;
+          _umbrellaRec = WeatherService.shouldBringUmbrella(weather);
+          _maskRec = WeatherService.shouldWearMask(airData);
           _isLoadingWeather = false;
         });
       }
@@ -81,37 +94,52 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) setState(() => _homeSet = set);
   }
 
-  void _onOutingTap(String type, String emoji) {
-    if (type == '직접 추가') {
-      _showCustomTypeDialog();
-      return;
+  /// 현재 위치를 기준 위치(집)로 저장하고 지오펜스 모니터링 시작
+  Future<void> _saveCurrentLocationAsHome() async {
+    setState(() => _isSavingLocation = true);
+    debugPrint('[UT] 현재 위치 저장 시도...');
+    try {
+      Location? loc;
+      try {
+        loc = await FlLocation.getLocation(accuracy: LocationAccuracy.low);
+      } catch (_) {}
+      loc ??= await FlLocation.getLocation(accuracy: LocationAccuracy.high);
+
+      final place = Place(
+        id: const Uuid().v4(),
+        name: '집',
+        lat: loc.latitude,
+        lon: loc.longitude,
+      );
+      await PrefsService.savePlaces([place]);
+      await PrefsService.setActivePlaceId(place.id);
+      await GeofenceServiceWrapper().startMonitoringActivePlace();
+
+      debugPrint('[UT] 위치 저장 완료 — lat=${loc.latitude} lon=${loc.longitude}');
+
+      if (mounted) {
+        setState(() { _homeSet = true; _isSavingLocation = false; });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('기준 위치가 설정되었습니다. 이 위치를 벗어나면 알려드릴게요.'),
+            duration: Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[UT] 위치 저장 실패: $e');
+      if (mounted) {
+        setState(() => _isSavingLocation = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('위치를 가져오지 못했어요. 위치 권한을 확인해주세요.')),
+        );
+      }
     }
-    context.go('/checklist?type=${Uri.encodeComponent(type)}');
   }
 
-  Future<void> _showCustomTypeDialog() async {
-    String custom = '';
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('외출 종류 입력'),
-        content: TextField(
-          autofocus: true,
-          decoration: const InputDecoration(hintText: '예: 병원, 쇼핑'),
-          onChanged: (v) => custom = v,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, custom),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
-    );
-    if (result != null && result.trim().isNotEmpty) {
-      context.go('/checklist?type=${Uri.encodeComponent(result.trim())}');
-    }
+  void _onOutingTap() {
+    context.go('/checklist?type=${Uri.encodeComponent('등교')}');
   }
 
   @override
@@ -154,23 +182,48 @@ class _HomeScreenState extends State<HomeScreen> {
                         description: _currentWeather!['weather'][0]['description'],
                         iconCode: _currentWeather!['weather'][0]['icon'],
                         clothingRec: _clothingRec,
+                        umbrellaRec: _umbrellaRec,
+                        maskRec: _maskRec,
                       ),
                     if (!_isLoadingWeather && _currentWeather != null)
                       const SizedBox(height: 16),
 
-                    // ── Geofence setup banner ─────────────────
-                    if (!_homeSet)
-                      _GeofenceSetupBanner(
-                        onTap: () async {
-                          await context.push('/permission-setup');
-                          _checkHomeSet();
-                        },
+                    // ── 집 위치 설정 버튼 (미설정 시) ──────────────
+                    if (!_homeSet) ...[
+                      FilledButton.icon(
+                        onPressed: _isSavingLocation ? null : _saveCurrentLocationAsHome,
+                        icon: _isSavingLocation
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.home_outlined),
+                        label: Text(_isSavingLocation ? '위치 확인 중...' : '현재 위치를 집으로 설정'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: NeomeDesignSystem.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
                       ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '집을 나설 때 자동으로 알려드려요',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
 
-                    const SizedBox(height: 16),
+                    // ── 오늘의 추천템 카드 ────────────────────────
+                    if (_recommendations.isNotEmpty) ...[
+                      _TodayRecommendationCard(recommendations: _recommendations),
+                      const SizedBox(height: 16),
+                    ],
 
-                    // ── Outing type selection ─────────────────
-                    _OutingCard(onTap: _onOutingTap),
+                    // ── 등교 체크리스트 카드 ──────────────────────
+                    _ChecklistCard(onTap: _onOutingTap),
                   ],
                 ),
               ),
@@ -185,29 +238,106 @@ class _HomeScreenState extends State<HomeScreen> {
 
 // ── Sub-widgets ──────────────────────────────────────────────
 
-class _GeofenceSetupBanner extends StatelessWidget {
-  final VoidCallback onTap;
-  const _GeofenceSetupBanner({required this.onTap});
+class _TodayRecommendationCard extends StatelessWidget {
+  final List<String> recommendations;
+  const _TodayRecommendationCard({required this.recommendations});
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: NeomeDesignSystem.primary.withOpacity(0.05),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        title: const Text(
-          '집 위치를 등록하면 외출 시 알려드려요',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: NeomeDesignSystem.primary,
-          ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.tips_and_updates_outlined,
+                    size: 18, color: NeomeDesignSystem.primary),
+                const SizedBox(width: 8),
+                const Text(
+                  '오늘의 추천템',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...recommendations.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Text(
+                      RecommendationService.emojiFor(item),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '$item 챙기세요',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
-        subtitle: Text(
-          '지금 설정하기 →',
-          style: TextStyle(fontSize: 13, color: NeomeDesignSystem.primary.withOpacity(0.7)),
+      ),
+    );
+  }
+}
+
+class _ChecklistCard extends StatelessWidget {
+  final VoidCallback onTap;
+  const _ChecklistCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+          borderRadius: BorderRadius.circular(20),
+          color: Colors.white,
         ),
-        onTap: onTap,
+        padding: const EdgeInsets.all(24),
+        child: Row(
+          children: [
+            const Text('🎒', style: TextStyle(fontSize: 36)),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '등교',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '체크리스트 확인하기',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey[400]),
+          ],
+        ),
       ),
     );
   }
@@ -218,12 +348,16 @@ class _WeatherCard extends StatelessWidget {
   final String description;
   final String iconCode;
   final String clothingRec;
+  final bool umbrellaRec;
+  final bool maskRec;
 
   const _WeatherCard({
     required this.temp,
     required this.description,
     required this.iconCode,
     required this.clothingRec,
+    required this.umbrellaRec,
+    required this.maskRec,
   });
 
   @override
@@ -278,6 +412,25 @@ class _WeatherCard extends StatelessWidget {
                 ],
               ),
             ],
+            if (umbrellaRec || maskRec) ...[
+              const Divider(height: 24),
+              Row(
+                children: [
+                  const Icon(Icons.backpack_outlined, size: 16, color: NeomeDesignSystem.primary),
+                  const SizedBox(width: 6),
+                  const Text(
+                    '추천 준비물',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                  ),
+                  const SizedBox(width: 10),
+                  if (umbrellaRec)
+                    _RecommendChip(emoji: '☂', label: '우산'),
+                  if (umbrellaRec && maskRec) const SizedBox(width: 8),
+                  if (maskRec)
+                    _RecommendChip(emoji: '😷', label: '마스크'),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -285,97 +438,27 @@ class _WeatherCard extends StatelessWidget {
   }
 }
 
-class _OutingCard extends StatelessWidget {
-  final void Function(String type, String emoji) onTap;
-  const _OutingCard({required this.onTap});
 
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '지금 어디 가세요?',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => context.push('/settings'),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    foregroundColor: const Color(0xFF94A3B8),
-                    textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                  child: const Text('알람 설정'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 1.5,
-              children: _outingTypes
-                  .map((t) => _OutingTile(
-                        emoji: t.$2,
-                        label: t.$1,
-                        onTap: () => onTap(t.$1, t.$2),
-                      ))
-                  .toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _OutingTile extends StatelessWidget {
+class _RecommendChip extends StatelessWidget {
   final String emoji;
   final String label;
-  final VoidCallback onTap;
-  const _OutingTile({required this.emoji, required this.label, required this.onTap});
+  const _RecommendChip({required this.emoji, required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
-          borderRadius: BorderRadius.circular(16),
-          color: Colors.white,
-        ),
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 28)),
-            const Spacer(),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1E293B),
-              ),
-            ),
-          ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: NeomeDesignSystem.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: NeomeDesignSystem.primary.withOpacity(0.2)),
+      ),
+      child: Text(
+        '$emoji $label',
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: NeomeDesignSystem.primary,
         ),
       ),
     );
