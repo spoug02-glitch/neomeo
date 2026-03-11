@@ -24,7 +24,7 @@ import 'departure_message_service.dart';
 
 // ── 상수 ──────────────────────────────────────────────────────────────────────
 
-const _kDepartureRadius = 100.0;               // m: 이탈 후보 기준
+const _kDepartureRadius = 120.0;               // m: 이탈 후보 기준 (UT MVP: 120m)
 const _kResetRadius     = 80.0;                // m: 귀가 리셋 기준
 const _kConfirmDelay    = Duration(seconds: 30); // GPS 튐 방지 확인 시간
 const _kIntervalMs      = 10000;               // 위치 폴링 주기 (10 s)
@@ -157,6 +157,9 @@ class GeofenceServiceWrapper {
     _confirmTimer = null;
     _monitoringStartedAt = DateTime.now();
 
+    // geofencing_api v2.0.0은 fl_location의 getLocationStream()을 사용하는
+    // 순수 Dart 구현이다. 포그라운드 서비스 알림은 fl_location이 자동으로
+    // 관리하며, 별도 notificationOptions 설정이 필요 없다.
     Geofencing.instance.setup(
       interval: _kIntervalMs,
       accuracy: _kAccuracyM,

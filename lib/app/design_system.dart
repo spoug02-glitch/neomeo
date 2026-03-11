@@ -69,7 +69,17 @@ class NeomeBottomNav extends StatelessWidget {
         onTap: (i) {
           if (i == 0) context.go('/home');
           if (i == 1) context.go('/settings');
-          if (i == 2) context.go('/calendar');
+          if (i == 2) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('달력 기능은 추후 사용 가능합니다 🗓'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            );
+          }
         },
         backgroundColor: Colors.white,
         selectedItemColor: NeomeDesignSystem.textMain,

@@ -147,29 +147,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       location ??= await FlLocation.getLocation(accuracy: LocationAccuracy.high);
 
       if (!mounted) return;
-
-      final lat = location.latitude;
-      final lon = location.longitude;
-      _latCtrl.text = lat.toStringAsFixed(6);
-      _lonCtrl.text = lon.toStringAsFixed(6);
-
-      // fetching 표시 종료 후 확인 시트 표시
-      setState(() => _locationMode = _LocationMode.initial);
-
-      final confirmed = await showModalBottomSheet<bool>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.white,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        builder: (ctx) => _LocationConfirmBottomSheet(lat: lat, lon: lon),
-      );
-
-      if (confirmed == true && mounted) {
-        await _savePlace();
-      }
-      // confirmed == false 또는 닫힘 → initial 상태 유지
+      _latCtrl.text = location.latitude.toStringAsFixed(6);
+      _lonCtrl.text = location.longitude.toStringAsFixed(6);
+      setState(() => _locationMode = _LocationMode.form);
+      _showSnack('현재 위치를 가져왔어요!');
     } catch (e) {
       if (!mounted) return;
       setState(() => _locationMode = _LocationMode.form);
@@ -183,6 +164,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       });
 
   void _useManualInput() => setState(() => _locationMode = _LocationMode.form);
+
+  // ── 지도 확인 후 저장 ──────────────────────────────────────────────────────
+
+  Future<void> _confirmAndSave() async {
+    final lat = double.tryParse(_latCtrl.text.trim());
+    final lon = double.tryParse(_lonCtrl.text.trim());
+
+    // 좌표가 없으면 바로 저장 시도 (유효성 검사는 _savePlace에서)
+    if (lat == null || lon == null) {
+      await _savePlace();
+      return;
+    }
+
+    final result = await showDialog<LatLng>(
+      context: context,
+      builder: (ctx) => _LocationConfirmDialog(lat: lat, lon: lon),
+    );
+
+    if (result != null && mounted) {
+      _latCtrl.text = result.latitude.toStringAsFixed(6);
+      _lonCtrl.text = result.longitude.toStringAsFixed(6);
+      await _savePlace();
+    }
+  }
 
   // ── 장소 저장 ──────────────────────────────────────────────────────────────
 
@@ -227,7 +232,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            if (_step < 3) _buildProgressBar(),
+            if (_step > 0 && _step < 3) _buildProgressBar(),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
@@ -250,7 +255,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               Text(
-                '${_step + 1} / $_totalSteps',
+                '$_step / $_totalSteps',
                 style: NeomeDesignSystem.caption.copyWith(fontWeight: FontWeight.w600),
               ),
             ],
@@ -259,7 +264,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: (_step + 1) / _totalSteps,
+              value: _step / _totalSteps,
               minHeight: 4,
               backgroundColor: NeomeDesignSystem.border,
               color: NeomeDesignSystem.primary,
@@ -444,7 +449,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             style: TextButton.styleFrom(foregroundColor: NeomeDesignSystem.primary),
           ),
           const SizedBox(height: 24),
-          _primaryButton('등록하고 시작하기', _isSaving ? null : _savePlace, loading: _isSaving),
+          _primaryButton('등록하고 시작하기', _isSaving ? null : _confirmAndSave, loading: _isSaving),
           const SizedBox(height: 16),
         ],
       ),
@@ -555,113 +560,132 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-// ── 위치 확인 바텀시트 ─────────────────────────────────────────────────────────
+// ── 위치 확인 다이얼로그 (지도 드래그로 핀 이동) ─────────────────────────────
 
-class _LocationConfirmBottomSheet extends StatelessWidget {
+class _LocationConfirmDialog extends StatefulWidget {
   final double lat;
   final double lon;
+  const _LocationConfirmDialog({required this.lat, required this.lon});
 
-  const _LocationConfirmBottomSheet({required this.lat, required this.lon});
+  @override
+  State<_LocationConfirmDialog> createState() => _LocationConfirmDialogState();
+}
+
+class _LocationConfirmDialogState extends State<_LocationConfirmDialog> {
+  late LatLng _pinCenter;
+
+  @override
+  void initState() {
+    super.initState();
+    _pinCenter = LatLng(widget.lat, widget.lon);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 드래그 핸들
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              '여기가 집인가요?',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF1E293B),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${lat.toStringAsFixed(5)}, ${lon.toStringAsFixed(5)}',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-            ),
-            const SizedBox(height: 16),
-            // 지도
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: SizedBox(
-                height: 260,
-                child: FlutterMap(
-                  options: MapOptions(
-                    initialCenter: LatLng(lat, lon),
-                    initialZoom: 15,
-                    interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.none,
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 지도 + 고정 핀 (지도를 드래그하면 핀 위치 업데이트)
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            child: SizedBox(
+              height: 280,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  FlutterMap(
+                    options: MapOptions(
+                      initialCenter: _pinCenter,
+                      initialZoom: 15,
+                      onPositionChanged: (position, _) {
+                        final center = position.center;
+                        if (center != null) {
+                          setState(() => _pinCenter = center);
+                        }
+                      },
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.hyoni.neomeo',
+                      ),
+                    ],
+                  ),
+                  // 중앙 고정 핀 (지도가 움직이면 핀 끝이 항상 중심)
+                  Transform.translate(
+                    offset: const Offset(0, -24),
+                    child: const Icon(
+                      Icons.location_pin,
+                      color: Color(0xFFEF4444),
+                      size: 48,
                     ),
                   ),
+                ],
+              ),
+            ),
+          ),
+          // 텍스트 + 버튼
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              children: [
+                const Text(
+                  '여기가 집인가요?',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${_pinCenter.latitude.toStringAsFixed(5)}, ${_pinCenter.longitude.toStringAsFixed(5)}',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '지도를 움직여 위치를 조정할 수 있어요',
+                  style: TextStyle(fontSize: 11, color: Color(0xFFCBD5E1)),
+                ),
+                const SizedBox(height: 16),
+                Row(
                   children: [
-                    TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.hyoni.neomeo',
-                    ),
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: LatLng(lat, lon),
-                          width: 48,
-                          height: 48,
-                          child: const Icon(
-                            Icons.location_pin,
-                            color: Color(0xFFEF4444),
-                            size: 48,
-                          ),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 48),
+                          side: BorderSide(color: Colors.grey.shade300),
+                          foregroundColor: NeomeDesignSystem.textSub,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                         ),
-                      ],
+                        child: const Text('다시 입력'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.pop(context, _pinCenter),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(0, 48),
+                          backgroundColor: NeomeDesignSystem.primary,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('맞아요'),
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 50),
-                      side: BorderSide(color: Colors.grey.shade300),
-                      foregroundColor: NeomeDesignSystem.textSub,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                    child: const Text('다시 가져오기'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, 50),
-                      backgroundColor: NeomeDesignSystem.primary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                    child: const Text('맞아요'),
-                  ),
-                ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

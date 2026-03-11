@@ -1,8 +1,48 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ── 위치 권한 ──────────────────────────────────────────────────────── -->
+    <!-- ACCESS_FINE_LOCATION: fl_location이 정밀 위치(GPS) 사용에 필요 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- ACCESS_BACKGROUND_LOCATION: Android 10+(API 29+) 백그라운드 위치.
+         Android 11+(API 30+)에서는 런타임에 직접 요청 불가.
+         반드시 설정 앱을 통해 "항상 허용"으로 사용자가 직접 변경해야 함.
+         fl_location ForegroundLocationService가 이 권한으로 백그라운드 실행. -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- ── 알림 권한 ─────────────────────────────────────────────────────── -->
+    <!-- POST_NOTIFICATIONS: Android 13+(API 33+) 런타임 권한. 선언 필수. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- ── 포그라운드 서비스 ──────────────────────────────────────────────── -->
+    <!-- fl_location이 내부적으로 ForegroundLocationService를 실행한다.
+         Android 9+(API 28+)에서 포그라운드 서비스 사용 시 선언 필수.
+         FOREGROUND_SERVICE_LOCATION: Android 14+(API 34+)에서 위치 유형 서비스에 추가 필요. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+    <!-- ── 재부팅 후 WorkManager 재시작 ─────────────────────────────────── -->
+    <!-- WorkManager(자정 리셋)가 BOOT_COMPLETED를 수신해 태스크를 재등록한다 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- ── 배터리 최적화 제외 ────────────────────────────────────────────── -->
+    <!-- 배터리 최적화 제외 요청 다이얼로그. Doze 모드에서 위치 폴링 유지. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- ── 정확한 알람 (flutter_local_notifications 예약 알림) ───────────── -->
+    <!-- Android 13+(API 33+): USE_EXACT_ALARM — 사전 승인, 런타임 요청 불필요 -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- SCHEDULE_EXACT_ALARM: Android 12(API 32) 이하 호환용 -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
+
     <application
         android:label="neomeo"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -12,34 +52,29 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
             <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme" />
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!-- Don't delete the meta-data below.
-             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+
+        <!-- Flutter embedding version -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-    </application>
-    <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
 
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+        <!-- NOTE: fl_location의 ForegroundLocationService는 패키지의 자체
+             AndroidManifest.xml에 선언되어 있어 gradle이 자동으로 merge한다.
+             여기에 중복 선언하면 충돌이 발생할 수 있으므로 선언하지 않는다. -->
+    </application>
+
     <queries>
         <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
         </intent>
     </queries>
 </manifest>

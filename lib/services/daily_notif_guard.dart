@@ -8,9 +8,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 
 class DailyNotifGuard {
-  static const _kDate = 'geofence_date';
-  static const _kCount = 'geofence_count';
-  static const _kExtra = 'geofence_extra_allowed';
+  static const _kDate        = 'geofence_date';
+  static const _kCount       = 'geofence_count';
+  static const _kExtra       = 'geofence_extra_allowed';
+  static const _kLastNotifAt = 'last_notif_at_ms';
+
+  /// 알람 발송 후 재발송까지 최소 대기 시간 (3시간)
+  static const _kCooldownMs = 3 * 60 * 60 * 1000;
 
   // Returns today's date string YYYYMMDD in Asia/Seoul.
   static String _todaySeoul() {

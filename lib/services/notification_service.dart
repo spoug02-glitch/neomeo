@@ -31,6 +31,8 @@ class NotificationService {
     );
 
     // Create Android notification channel
+    // enableLights / enableVibration / showBadge 는 채널 생성 시에만 적용됨.
+    // 채널이 이미 존재하면 시스템이 무시하므로, 앱 재설치 시 재생성된다.
     await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
@@ -40,6 +42,9 @@ class NotificationService {
             _channelName,
             description: _channelDesc,
             importance: Importance.high,
+            enableVibration: true,
+            enableLights: true,
+            showBadge: true,
           ),
         );
   }
@@ -64,6 +69,7 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
       ticker: '너머',
+      visibility: NotificationVisibility.public, // 잠금화면에서도 전체 내용 표시
     );
 
     await _plugin.show(
@@ -85,14 +91,15 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
       ticker: '너머',
+      visibility: NotificationVisibility.public,
     );
 
     await _plugin.show(
       0,
-      '어디 가세요? 🚪',
-      '탭하면 외출 유형을 선택하고 체크리스트를 확인할 수 있어요',
+      '집을 나가는 것 같아요',
+      '등교 전에 확인하고 가세요',
       const NotificationDetails(android: androidDetails),
-      payload: 'neomeo://outing-select',
+      payload: 'neomeo://checklist?type=등교',
     );
   }
 }

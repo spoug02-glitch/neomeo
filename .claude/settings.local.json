@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(java -version)",
+      "Read(//usr/lib/**)",
+      "Bash(\"/mnt/c/Program Files/Android/Android Studio/jbr/bin/keytool.exe\":*)",
+      "Bash(flutter build:*)",
+      "Read(//mnt/c/Users/fkfkf/AppData/Local/flutter/bin/**)",
+      "Read(//mnt/c/Users/fkfkf/**)",
+      "Bash(/mnt/c/src/flutter/bin/flutter build:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(git:*)",
+      "Bash(dart analyze:*)",
+      "Bash(flutter devices:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(bash:*)",
+      "Bash(flutter:*)",
+      "Bash(/mnt/c/src/flutter/bin/flutter.bat run:*)",
+      "Bash(/mnt/c/src/flutter/bin/flutter analyze:*)",
+      "Bash(env:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

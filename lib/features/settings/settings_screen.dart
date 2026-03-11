@@ -1,6 +1,7 @@
 // lib/features/settings/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:fl_location/fl_location.dart';
 import '../../data/prefs_service.dart';
@@ -43,34 +44,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadData() async {
-  final pt = await PrefsService.getPrepTime();
-  final pl = await PrefsService.getPlaces();
-  final ap = await PrefsService.getActivePlaceId();
+    final pt = await PrefsService.getPrepTime();
+    final pl = await PrefsService.getPlaces();
+    final ap = await PrefsService.getActivePlaceId();
 
-  final dndE = await PrefsService.isDndEnabled();
-  final dndS = await PrefsService.getDndStart();
-  final dndEnd = await PrefsService.getDndEnd();
+    final dndE = await PrefsService.isDndEnabled();
+    final dndS = await PrefsService.getDndStart();
+    final dndEnd = await PrefsService.getDndEnd();
 
-  // ✅ 여기서 미리 다 받아두기
-  final weatherE = await PrefsService.isWeatherEnabled();
-  final dustE = await PrefsService.isDustEnabled();
-  final tempS = await PrefsService.getTempSensitivity();
+    final weatherE = await PrefsService.isWeatherEnabled();
+    final dustE = await PrefsService.isDustEnabled();
+    final tempS = await PrefsService.getTempSensitivity();
 
-  if (mounted) {
-    setState(() {
-      _prepTime = pt ?? '07:30';
-      _places = pl;
-      _activePlaceId = ap;
-      _dndEnabled = dndE;
-      _dndStart = dndS;
-      _dndEnd = dndEnd;
-      _weatherEnabled = weatherE;
-      _dustEnabled = dustE;
-      _tempSensitivity = tempS;
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _prepTime = pt ?? '07:30';
+        _places = pl;
+        _activePlaceId = ap;
+        _dndEnabled = dndE;
+        _dndStart = dndS;
+        _dndEnd = dndEnd;
+        _weatherEnabled = weatherE;
+        _dustEnabled = dustE;
+        _tempSensitivity = tempS;
+        _isLoading = false;
+      });
+    }
   }
-}
 
   Future<void> _pickTime() async {
     final parts = _prepTime.split(':');
@@ -185,9 +185,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           latCtrl.text = loc.latitude.toString();
                           lonCtrl.text = loc.longitude.toString();
                         });
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('현재 위치의 좌표를 가져왔습니다.')));
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('현재 위치의 좌표를 가져왔습니다.')));
+                        }
                       } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('위치를 가져오지 못했습니다: $e')));
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('위치를 가져오지 못했습니다: $e')));
+                        }
                       }
                     },
                     icon: const Icon(Icons.my_location),
@@ -228,6 +232,106 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
         _loadData();
       }
+    }
+  }
+
+  Future<void> _editPlace(Place place) async {
+    final nameCtrl    = TextEditingController(text: place.name);
+    final addressCtrl = TextEditingController(text: place.address ?? '');
+    final latCtrl     = TextEditingController(text: place.lat != 0.0 ? place.lat.toString() : '');
+    final lonCtrl     = TextEditingController(text: place.lon != 0.0 ? place.lon.toString() : '');
+    bool isFetching = false;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            title: const Text('위치 수정'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: '장소 이름', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: addressCtrl,
+                    decoration: const InputDecoration(labelText: '주소 (선택)', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: isFetching ? null : () async {
+                      setDialogState(() => isFetching = true);
+                      try {
+                        final loc = await FlLocation.getLocation();
+                        setDialogState(() {
+                          latCtrl.text = loc.latitude.toStringAsFixed(6);
+                          lonCtrl.text  = loc.longitude.toStringAsFixed(6);
+                          isFetching = false;
+                        });
+                      } catch (_) {
+                        setDialogState(() => isFetching = false);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(content: Text('위치를 가져오지 못했어요.')));
+                        }
+                      }
+                    },
+                    icon: isFetching
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.my_location, size: 18),
+                    label: Text(isFetching ? '가져오는 중...' : '현재 위치 가져오기'),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: latCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                          decoration: const InputDecoration(labelText: '위도', border: OutlineInputBorder()),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: lonCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                          decoration: const InputDecoration(labelText: '경도', border: OutlineInputBorder()),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('저장')),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (result == true) {
+      final updated = Place(
+        id: place.id,
+        name: nameCtrl.text.trim().isNotEmpty ? nameCtrl.text.trim() : place.name,
+        address: addressCtrl.text.trim().isNotEmpty ? addressCtrl.text.trim() : null,
+        detailedAddress: place.detailedAddress,
+        lat: double.tryParse(latCtrl.text.trim()) ?? place.lat,
+        lon: double.tryParse(lonCtrl.text.trim()) ?? place.lon,
+      );
+      final newList = _places.map((p) => p.id == place.id ? updated : p).toList();
+      await PrefsService.savePlaces(newList);
+      if (_activePlaceId == place.id) {
+        await GeofenceServiceWrapper().startMonitoringActivePlace();
+      }
+      _loadData();
     }
   }
 
@@ -389,6 +493,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     margin: const EdgeInsets.only(bottom: 8),
                     color: isActive ? NeomeDesignSystem.primary.withOpacity(0.06) : Colors.white,
                     child: ListTile(
+                      onTap: () => _editPlace(p),
                       title: Text(p.name, style: TextStyle(fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
                       subtitle: p.address != null ? Text(p.address!) : null,
                       leading: Radio<String>(
@@ -404,6 +509,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   );
                 },
               ),
+            const SizedBox(height: 40),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final p = await SharedPreferences.getInstance();
+                await p.remove('onboarding_done');
+                if (mounted) context.go('/onboarding');
+              },
+              icon: const Icon(Icons.replay, size: 16),
+              label: const Text('온보딩 다시 보기'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+                foregroundColor: NeomeDesignSystem.textSub,
+                side: BorderSide(color: Colors.grey.shade300),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
             const SizedBox(height: 40),
           ],
         ),

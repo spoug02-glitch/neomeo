@@ -7,7 +7,6 @@ import 'app/router.dart';
 import 'services/notification_service.dart';
 import 'services/geofence_service_wrapper.dart';
 import 'services/midnight_reset_worker.dart';
-import 'data/prefs_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,10 +14,12 @@ void main() async {
   // Notifications — set up tap deeplink handler
   await NotificationService().init(
     onTap: (payload) {
-      if (payload == 'neomeo://outing-select') {
+      // UT MVP: 알림 탭 시 등교 체크리스트로 바로 이동
+      if (payload.startsWith('neomeo://checklist')) {
+        const type = '등교';
+        appRouter.go('/checklist?type=${Uri.encodeComponent(type)}');
+      } else if (payload == 'neomeo://outing-select') {
         appRouter.go('/outing-select');
-      } else if (payload == 'neomeo://checklist') {
-        appRouter.go('/checklist');
       }
     },
   );
