@@ -40,8 +40,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final apiKey = await PrefsService.getWeatherApiKey();
     final activePlace = await PrefsService.getActivePlace();
     final weatherEnabled = await PrefsService.isWeatherEnabled();
+    final dustEnabled = await PrefsService.isDustEnabled();
 
-    if (apiKey.isEmpty || activePlace == null || !weatherEnabled) {
+    if (apiKey.isEmpty || activePlace == null) {
       if (mounted) setState(() => _isLoadingWeather = false);
       return;
     }
@@ -83,8 +84,8 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           _currentWeather = weather;
           _clothingRec = rec;
-          _umbrellaRec = WeatherService.shouldBringUmbrella(weather);
-          _maskRec = WeatherService.shouldWearMask(airData);
+          _umbrellaRec = weatherEnabled && WeatherService.shouldBringUmbrella(weather);
+          _maskRec = dustEnabled && WeatherService.shouldWearMask(airData);
           _precipPct = precipPct;
           _isSnow = isSnow;
           _aqiValue = aqiValue;

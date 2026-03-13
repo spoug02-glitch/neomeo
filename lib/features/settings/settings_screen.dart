@@ -17,7 +17,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  String _prepTime = '07:30';
+  String? _prepTime;
   List<Place> _places = [];
   String? _activePlaceId;
   bool _isLoading = true;
@@ -58,7 +58,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (mounted) {
       setState(() {
-        _prepTime = pt ?? '07:30';
+        _prepTime = pt;
         _places = pl;
         _activePlaceId = ap;
         _dndEnabled = dndE;
@@ -73,13 +73,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _pickTime() async {
-    final parts = _prepTime.split(':');
+    TimeOfDay initial;
+    if (_prepTime != null) {
+      final parts = _prepTime!.split(':');
+      initial = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    } else {
+      initial = TimeOfDay.now();
+    }
     final picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay(
-        hour: int.parse(parts[0]),
-        minute: int.parse(parts[1]),
-      ),
+      initialTime: initial,
     );
     if (picked != null) {
       final s = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
@@ -380,7 +383,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Card(
               child: ListTile(
                 title: const Text('준비 시작 시간'),
-                subtitle: Text('매일 이 시간대에 외출 준비를 도와드려요: $_prepTime'),
+                subtitle: Text(
+                  _prepTime != null
+                      ? '기본으로 도와드려요: $_prepTime'
+                      : '도와드려요: 설정이 안 됐어요',
+                ),
                 trailing: const Icon(Icons.access_time),
                 onTap: _pickTime,
               ),
