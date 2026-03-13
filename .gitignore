@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# API keys — 실제 키 포함, 커밋 금지
+lib/app/app_config.dart

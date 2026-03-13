@@ -18,7 +18,12 @@
       "Bash(/mnt/c/src/flutter/bin/flutter.bat run:*)",
       "Bash(/mnt/c/src/flutter/bin/flutter analyze:*)",
       "Bash(env:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git -C /mnt/c/Users/fkfkf/Documents/neome_app add lib/main.dart lib/services/geofence_service_wrapper.dart && git -C /mnt/c/Users/fkfkf/Documents/neome_app commit -m \"$\\(cat <<'EOF'\n크래시 방어: main 초기화 및 지오펜스 시작에 try-catch 추가\n\n- main\\(\\): NotificationService.init, GeofenceServiceWrapper.startFromSaved,\n  MidnightResetWorker.register 각각 try-catch로 감싸 초기화 실패 시\n  앱 전체 크래시 방지\n- geofence_service_wrapper: Geofencing.instance.setup/start 전체를\n  try-catch로 보호 \\(권한 미허용 기기에서 SecurityException 크래시 방지\\)\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git add:*)",
+      "Bash(find /mnt/c/Users/fkfkf/Documents/neome_app/android -name \"*.gradle\" -o -name \"*.gradle.kts\" 2>/dev/null | head -20)",
+      "Bash(find /mnt/c/Users/fkfkf -path \"*/geofencing_api*\" -name \"*.dart\" 2>/dev/null | head -10)",
+      "Bash(git rm:*)"
     ]
   }
 }
