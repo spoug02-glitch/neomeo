@@ -157,33 +157,38 @@ class GeofenceServiceWrapper {
     _confirmTimer = null;
     _monitoringStartedAt = DateTime.now();
 
-    // geofencing_api v2.0.0은 fl_location의 getLocationStream()을 사용하는
-    // 순수 Dart 구현이다. 포그라운드 서비스 알림은 fl_location이 자동으로
-    // 관리하며, 별도 notificationOptions 설정이 필요 없다.
-    Geofencing.instance.setup(
-      interval: _kIntervalMs,
-      accuracy: _kAccuracyM,
-    );
+    try {
+      // geofencing_api v2.0.0은 fl_location의 getLocationStream()을 사용하는
+      // 순수 Dart 구현이다. 포그라운드 서비스 알림은 fl_location이 자동으로
+      // 관리하며, 별도 notificationOptions 설정이 필요 없다.
+      Geofencing.instance.setup(
+        interval: _kIntervalMs,
+        accuracy: _kAccuracyM,
+      );
 
-    Geofencing.instance
-        .addGeofenceStatusChangedListener(_onGeofenceStatusChanged);
+      Geofencing.instance
+          .addGeofenceStatusChangedListener(_onGeofenceStatusChanged);
 
-    // 외곽 지오펜스 (100m): exit → 이탈 후보
-    final outerRegion = GeofenceCircularRegion(
-      id: '$placeId$_kOuterSuffix',
-      center: LatLng(lat, lon),
-      radius: _kDepartureRadius,
-    );
+      // 외곽 지오펜스: exit → 이탈 후보
+      final outerRegion = GeofenceCircularRegion(
+        id: '$placeId$_kOuterSuffix',
+        center: LatLng(lat, lon),
+        radius: _kDepartureRadius,
+      );
 
-    // 내부 지오펜스 (80m): enter → 귀가 리셋
-    final innerRegion = GeofenceCircularRegion(
-      id: '$placeId$_kInnerSuffix',
-      center: LatLng(lat, lon),
-      radius: _kResetRadius,
-    );
+      // 내부 지오펜스: enter → 귀가 리셋
+      final innerRegion = GeofenceCircularRegion(
+        id: '$placeId$_kInnerSuffix',
+        center: LatLng(lat, lon),
+        radius: _kResetRadius,
+      );
 
-    await Geofencing.instance.start(regions: {outerRegion, innerRegion});
-    _running = true;
+      await Geofencing.instance.start(regions: {outerRegion, innerRegion});
+      _running = true;
+    } catch (e) {
+      debugPrint('[Geofence] start() failed (권한 미허용?): $e');
+      return;
+    }
 
     debugPrint(
       '[Geofence] Monitoring started — '

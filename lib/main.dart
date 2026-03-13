@@ -12,25 +12,37 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Notifications — set up tap deeplink handler
-  await NotificationService().init(
-    onTap: (payload) {
-      // UT MVP: 알림 탭 시 등교 체크리스트로 바로 이동
-      if (payload.startsWith('neomeo://checklist')) {
-        const type = '등교';
-        appRouter.go('/checklist?type=${Uri.encodeComponent(type)}');
-      } else if (payload == 'neomeo://outing-select') {
-        appRouter.go('/outing-select');
-      }
-    },
-  );
+  try {
+    await NotificationService().init(
+      onTap: (payload) {
+        // UT MVP: 알림 탭 시 등교 체크리스트로 바로 이동
+        if (payload.startsWith('neomeo://checklist')) {
+          const type = '등교';
+          appRouter.go('/checklist?type=${Uri.encodeComponent(type)}');
+        } else if (payload == 'neomeo://outing-select') {
+          appRouter.go('/outing-select');
+        }
+      },
+    );
+  } catch (e) {
+    debugPrint('[Main] Notification init failed: $e');
+  }
 
   // Restart geofence if home was previously set
   if (!kIsWeb) {
-    await GeofenceServiceWrapper().startFromSaved();
+    try {
+      await GeofenceServiceWrapper().startFromSaved();
+    } catch (e) {
+      debugPrint('[Main] Geofence init failed: $e');
+    }
   }
 
   // Register midnight reset WorkManager task
-  await MidnightResetWorker.register();
+  try {
+    await MidnightResetWorker.register();
+  } catch (e) {
+    debugPrint('[Main] WorkManager init failed: $e');
+  }
 
   runApp(
     const ProviderScope(child: NeomeoApp()),
