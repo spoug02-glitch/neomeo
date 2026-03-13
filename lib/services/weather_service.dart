@@ -75,13 +75,66 @@ class WeatherService {
     if (airData == null) return false;
     final list = airData['list'] as List?;
     if (list == null || list.isEmpty) return false;
-    
+
     final main = list[0]['main'];
     if (main == null) return false;
-    
+
     final aqi = main['aqi'] as int? ?? 1;
     // AQI levels: 1 = Good, 2 = Fair, 3 = Moderate, 4 = Poor, 5 = Very Poor
     // Suggest mask for Poor (4) and Very Poor (5)
     return aqi >= 4;
+  }
+
+  /// 단순 옷차림 레이블 (평균 온도 기반, 1~2단어)
+  static String getSimpleClothing(double temp) {
+    if (temp >= 28) return '민소매·반바지';
+    if (temp >= 23) return '반팔';
+    if (temp >= 20) return '긴팔';
+    if (temp >= 17) return '니트·맨투맨';
+    if (temp >= 12) return '자켓·청바지';
+    if (temp >= 9)  return '트렌치코트';
+    if (temp >= 5)  return '울코트';
+    return '패딩';
+  }
+
+  /// OWM AQI (1~5) → 한국어 레이블
+  static String getAqiLabel(int aqi) {
+    switch (aqi) {
+      case 1: return '좋음';
+      case 2: return '보통';
+      case 3: return '보통';
+      case 4: return '나쁨';
+      case 5: return '매우나쁨';
+      default: return '-';
+    }
+  }
+
+  /// forecast 다음 4구간(12h) 중 최대 강수확률 0~100
+  static int getMaxPrecipProb(List<dynamic> forecast) {
+    if (forecast.isEmpty) return 0;
+    final maxPop = forecast
+        .take(4)
+        .map((e) => (e['pop'] as num? ?? 0.0).toDouble())
+        .reduce((a, b) => a > b ? a : b);
+    return (maxPop * 100).round();
+  }
+
+  /// forecast 다음 4구간 중 눈 예보 여부
+  static bool isSnowExpected(List<dynamic> forecast) {
+    return forecast.take(4).any((e) {
+      final w = e['weather'] as List?;
+      if (w == null || w.isEmpty) return false;
+      return (w[0]['main']?.toString().toLowerCase() ?? '').contains('snow');
+    });
+  }
+
+  /// air_pollution 응답에서 AQI 정수 (0 = 데이터 없음)
+  static int getAqiValue(Map<String, dynamic>? airData) {
+    if (airData == null) return 0;
+    final list = airData['list'] as List?;
+    if (list == null || list.isEmpty) return 0;
+    final main = list[0]['main'];
+    if (main == null) return 0;
+    return (main['aqi'] as int?) ?? 0;
   }
 }

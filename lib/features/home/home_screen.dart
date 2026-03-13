@@ -9,7 +9,6 @@ import '../../services/geofence_service_wrapper.dart';
 import '../../services/weather_service.dart';
 import '../../data/prefs_service.dart';
 import '../../data/place.dart';
-import '../../utils/recommendation_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,19 +25,15 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _umbrellaRec = false;
   bool _maskRec = false;
   bool _isSavingLocation = false;
-  List<String> _recommendations = [];
+  int _precipPct = 0;
+  bool _isSnow = false;
+  int _aqiValue = 0;
 
   @override
   void initState() {
     super.initState();
     _checkHomeSet();
     _loadWeather();
-    _loadRecommendations();
-  }
-
-  Future<void> _loadRecommendations() async {
-    final recs = await RecommendationService.getTodayRecommendations();
-    if (mounted) setState(() => _recommendations = recs);
   }
 
   Future<void> _loadWeather() async {
@@ -57,6 +52,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final sensitivity = await PrefsService.getTempSensitivity();
 
       String rec = '';
+      int precipPct = 0;
+      bool isSnow = false;
+
       if (forecast != null && forecast.isNotEmpty) {
         final next12h = forecast.take(4).toList();
         final temps = next12h.map((e) => (e['main']['temp'] as num).toDouble()).toList();
@@ -65,15 +63,21 @@ class _HomeScreenState extends State<HomeScreen> {
         final maxTemp = temps.reduce((a, b) => a > b ? a : b);
 
         final adjustedAvg = avgTemp + sensitivity;
-        rec = WeatherService.calculateRecommendedClothes(adjustedAvg);
+        final baseClothing = WeatherService.getSimpleClothing(adjustedAvg);
+        final tempDiff = maxTemp - minTemp;
 
-        if (maxTemp - minTemp >= 8) {
-          rec = '$rec + 가디건이나 겉옷 (일교차 대비)';
+        if (tempDiff >= 8) {
+          rec = '$baseClothing + 가디건 (기온: ${minTemp.toStringAsFixed(0)}°~${maxTemp.toStringAsFixed(0)}°)';
+        } else {
+          rec = '$baseClothing (기온: ${minTemp.toStringAsFixed(0)}°~${maxTemp.toStringAsFixed(0)}°)';
         }
-        rec = '$rec (기온: ${minTemp.toStringAsFixed(0)}°~${maxTemp.toStringAsFixed(0)}°)';
+
+        precipPct = WeatherService.getMaxPrecipProb(forecast);
+        isSnow = WeatherService.isSnowExpected(forecast);
       }
 
       final airData = await WeatherService.fetchAirPollution(activePlace.lat, activePlace.lon, apiKey);
+      final aqiValue = WeatherService.getAqiValue(airData);
 
       if (mounted) {
         setState(() {
@@ -81,6 +85,9 @@ class _HomeScreenState extends State<HomeScreen> {
           _clothingRec = rec;
           _umbrellaRec = WeatherService.shouldBringUmbrella(weather);
           _maskRec = WeatherService.shouldWearMask(airData);
+          _precipPct = precipPct;
+          _isSnow = isSnow;
+          _aqiValue = aqiValue;
           _isLoadingWeather = false;
         });
       }
@@ -94,7 +101,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) setState(() => _homeSet = set);
   }
 
-  /// 현재 위치를 기준 위치(집)로 저장하고 지오펜스 모니터링 시작
   Future<void> _saveCurrentLocationAsHome() async {
     setState(() => _isSavingLocation = true);
     debugPrint('[UT] 현재 위치 저장 시도...');
@@ -176,7 +182,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 24),
 
                     // ── Weather Card ──────────────────────────
-                    if (!_isLoadingWeather && _currentWeather != null)
+                    if (_isLoadingWeather)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    else if (_currentWeather != null)
                       _WeatherCard(
                         temp: (_currentWeather!['main']['temp'] as num).toDouble(),
                         description: _currentWeather!['weather'][0]['description'],
@@ -184,6 +197,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         clothingRec: _clothingRec,
                         umbrellaRec: _umbrellaRec,
                         maskRec: _maskRec,
+                        precipPct: _precipPct,
+                        isSnow: _isSnow,
+                        aqiValue: _aqiValue,
                       ),
                     if (!_isLoadingWeather && _currentWeather != null)
                       const SizedBox(height: 16),
@@ -216,12 +232,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 20),
                     ],
 
-                    // ── 오늘의 추천템 카드 ────────────────────────
-                    if (_recommendations.isNotEmpty) ...[
-                      _TodayRecommendationCard(recommendations: _recommendations),
-                      const SizedBox(height: 16),
-                    ],
-
                     // ── 등교 체크리스트 카드 ──────────────────────
                     _ChecklistCard(onTap: _onOutingTap),
                   ],
@@ -236,64 +246,258 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ── Sub-widgets ──────────────────────────────────────────────
+// ── WeatherCard ─────────────────────────────────────────────
 
-class _TodayRecommendationCard extends StatelessWidget {
-  final List<String> recommendations;
-  const _TodayRecommendationCard({required this.recommendations});
+class _WeatherCard extends StatelessWidget {
+  final double temp;
+  final String description;
+  final String iconCode;
+  final String clothingRec;
+  final bool umbrellaRec;
+  final bool maskRec;
+  final int precipPct;
+  final bool isSnow;
+  final int aqiValue;
+
+  const _WeatherCard({
+    required this.temp,
+    required this.description,
+    required this.iconCode,
+    required this.clothingRec,
+    required this.umbrellaRec,
+    required this.maskRec,
+    required this.precipPct,
+    required this.isSnow,
+    required this.aqiValue,
+  });
+
+  Color _precipColor() {
+    if (precipPct >= 60) return const Color(0xFF1565C0);
+    if (precipPct >= 30) return const Color(0xFF42A5F5);
+    return const Color(0xFF94A3B8);
+  }
+
+  Color _aqiColor() {
+    switch (aqiValue) {
+      case 1: return const Color(0xFF4CAF50);
+      case 2: return const Color(0xFF2196F3);
+      case 3: return const Color(0xFFFFC107);
+      case 4: return const Color(0xFFFF9800);
+      case 5: return const Color(0xFFF44336);
+      default: return const Color(0xFF94A3B8);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final precipLabel = isSnow ? '눈·비 확률' : '강수확률';
+    final aqiLabel = WeatherService.getAqiLabel(aqiValue);
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Icon(Icons.tips_and_updates_outlined,
-                    size: 18, color: NeomeDesignSystem.primary),
-                const SizedBox(width: 8),
-                const Text(
-                  '오늘의 추천템',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1E293B),
+            // ── 상단: 날씨(좌) + 2셀 그리드(우) ──────────────
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 좌: 아이콘 + 온도 + 설명
+                  Expanded(
+                    flex: 3,
+                    child: Row(
+                      children: [
+                        Image.network(
+                          'https://openweathermap.org/img/wn/$iconCode@2x.png',
+                          width: 54,
+                          height: 54,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.wb_sunny_outlined,
+                            size: 44,
+                            color: Colors.orange,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '${temp.toStringAsFixed(1)}°C',
+                              style: const TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                            Text(
+                              description,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+
+                  // 세로 구분선
+                  Container(
+                    width: 1,
+                    margin: const EdgeInsets.symmetric(horizontal: 12),
+                    color: const Color(0xFFE5E8EB),
+                  ),
+
+                  // 우: 위(강수확률) / 아래(미세먼지)
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      children: [
+                        // 위: 강수확률
+                        Expanded(
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  precipLabel,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '$precipPct%',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                    color: _precipColor(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // 가로 구분선
+                        Container(height: 1, color: const Color(0xFFE5E8EB)),
+                        // 아래: 미세먼지
+                        Expanded(
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  '미세먼지',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  aqiValue == 0 ? '-' : aqiLabel,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: _aqiColor(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            ...recommendations.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
+
+            // ── 옷차림 추천 ──────────────────────────────────
+            if (clothingRec.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: NeomeDesignSystem.primary.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: Row(
                   children: [
-                    Text(
-                      RecommendationService.emojiFor(item),
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '$item 챙기세요',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF475569),
+                    const Icon(Icons.checkroom,
+                        size: 15, color: NeomeDesignSystem.primary),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '오늘의 옷차림: $clothingRec',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF475569),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
+            ],
+
+            // ── 준비물 추천 (조건부) ──────────────────────────
+            if (umbrellaRec || maskRec) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.backpack_outlined,
+                      size: 15, color: NeomeDesignSystem.primary),
+                  const SizedBox(width: 6),
+                  const Text(
+                    '준비물',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (umbrellaRec) _chip('☂', '우산'),
+                  if (umbrellaRec && maskRec) const SizedBox(width: 6),
+                  if (maskRec) _chip('😷', '마스크'),
+                ],
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+
+  Widget _chip(String emoji, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: NeomeDesignSystem.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: NeomeDesignSystem.primary.withOpacity(0.2)),
+      ),
+      child: Text(
+        '$emoji $label',
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: NeomeDesignSystem.primary,
+        ),
+      ),
+    );
+  }
 }
+
+// ── ChecklistCard ────────────────────────────────────────────
 
 class _ChecklistCard extends StatelessWidget {
   final VoidCallback onTap;
@@ -337,128 +541,6 @@ class _ChecklistCard extends StatelessWidget {
             ),
             Icon(Icons.chevron_right, color: Colors.grey[400]),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _WeatherCard extends StatelessWidget {
-  final double temp;
-  final String description;
-  final String iconCode;
-  final String clothingRec;
-  final bool umbrellaRec;
-  final bool maskRec;
-
-  const _WeatherCard({
-    required this.temp,
-    required this.description,
-    required this.iconCode,
-    required this.clothingRec,
-    required this.umbrellaRec,
-    required this.maskRec,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Image.network(
-                  'https://openweathermap.org/img/wn/$iconCode@2x.png',
-                  width: 50,
-                  height: 50,
-                  errorBuilder: (_, __, ___) =>
-                      const Icon(Icons.wb_sunny_outlined, size: 40, color: Colors.orange),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${temp.toStringAsFixed(1)}°C',
-                      style: const TextStyle(
-                          fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
-                    ),
-                    Text(
-                      description,
-                      style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            if (clothingRec.isNotEmpty) ...[
-              const Divider(height: 24),
-              Row(
-                children: [
-                  const Icon(Icons.checkroom, size: 18, color: NeomeDesignSystem.primary),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '오늘의 옷차림: $clothingRec',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF475569),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            if (umbrellaRec || maskRec) ...[
-              const Divider(height: 24),
-              Row(
-                children: [
-                  const Icon(Icons.backpack_outlined, size: 16, color: NeomeDesignSystem.primary),
-                  const SizedBox(width: 6),
-                  const Text(
-                    '추천 준비물',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
-                  ),
-                  const SizedBox(width: 10),
-                  if (umbrellaRec)
-                    _RecommendChip(emoji: '☂', label: '우산'),
-                  if (umbrellaRec && maskRec) const SizedBox(width: 8),
-                  if (maskRec)
-                    _RecommendChip(emoji: '😷', label: '마스크'),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-
-class _RecommendChip extends StatelessWidget {
-  final String emoji;
-  final String label;
-  const _RecommendChip({required this.emoji, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: NeomeDesignSystem.primary.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: NeomeDesignSystem.primary.withOpacity(0.2)),
-      ),
-      child: Text(
-        '$emoji $label',
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: NeomeDesignSystem.primary,
         ),
       ),
     );

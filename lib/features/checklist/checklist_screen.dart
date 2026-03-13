@@ -12,7 +12,6 @@ import '../../data/prefs_service.dart';
 import '../../app/design_system.dart';
 import '../../services/daily_notif_guard.dart';
 import '../../services/weather_service.dart';
-import '../../utils/recommendation_service.dart';
 
 final _itemsProvider =
     StateNotifierProvider.family<ChecklistNotifier, List<ChecklistItem>, String>(
@@ -134,32 +133,28 @@ class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
     final activePlace = await PrefsService.getActivePlace();
     if (activePlace == null) return;
 
+    final List<String> items = [];
+
     if (weatherEnabled) {
-      final weatherData = await WeatherService.fetchWeather(activePlace.lat, activePlace.lon, apiKey);
-      if (WeatherService.shouldBringUmbrella(weatherData)) {
-        if (!state.any((item) => item.label == '우산')) {
-          add('우산', '준비물'); // add() 내부에서 _syncToPrefs() 호출됨
-        }
-      }
+      final weatherData = await WeatherService.fetchWeather(
+          activePlace.lat, activePlace.lon, apiKey);
+      if (WeatherService.shouldBringUmbrella(weatherData)) items.add('우산');
     }
 
     if (dustEnabled) {
-      final airData = await WeatherService.fetchAirPollution(activePlace.lat, activePlace.lon, apiKey);
-      if (WeatherService.shouldWearMask(airData)) {
-        if (!state.any((item) => item.label == '마스크')) {
-          add('마스크', '준비물'); // add() 내부에서 _syncToPrefs() 호출됨
-        }
-      }
+      final airData = await WeatherService.fetchAirPollution(
+          activePlace.lat, activePlace.lon, apiKey);
+      if (WeatherService.shouldWearMask(airData)) items.add('마스크');
     }
-  }
 
-  /// 설정 상태 기반 추천 아이템을 체크리스트에 자동 추가한다 (mock, API 호출 없음).
-  Future<void> addRecommendedItems() async {
-    final recs = await RecommendationService.getTodayRecommendations();
-    for (final item in recs) {
-      if (!state.any((i) => i.label == item)) {
-        add(item, '준비물');
-      }
+    if (items.isEmpty) return;
+
+    // 모든 추천 준비물을 한 줄로 합산 ("우산 · 마스크")
+    final label = items.join(' · ');
+    final alreadyAdded = state.any((i) =>
+        i.label.contains('우산') || i.label.contains('마스크'));
+    if (!alreadyAdded) {
+      add(label, '준비물');
     }
   }
 }
@@ -189,7 +184,6 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
     // Trigger auto-items check
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final notifier = ref.read(_itemsProvider(widget.outingType).notifier);
-      notifier.addRecommendedItems();
       notifier.addAutoItems();
     });
   }
