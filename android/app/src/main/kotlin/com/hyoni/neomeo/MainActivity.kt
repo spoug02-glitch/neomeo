@@ -1,5 +1,5 @@
 package com.hyoni.neomeo
 
-import com.pravera.flutter_foreground_task.activity.FlutterForegroundTaskActivity
+import io.flutter.embedding.android.FlutterActivity
 
-class MainActivity : FlutterForegroundTaskActivity()
+class MainActivity : FlutterActivity()
