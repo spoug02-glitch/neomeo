@@ -310,15 +310,9 @@ class _WeatherCard extends StatelessWidget {
                     flex: 3,
                     child: Row(
                       children: [
-                        Image.network(
-                          'https://openweathermap.org/img/wn/$iconCode@2x.png',
-                          width: 54,
-                          height: 54,
-                          errorBuilder: (_, __, ___) => const Icon(
-                            Icons.wb_sunny_outlined,
-                            size: 44,
-                            color: Colors.orange,
-                          ),
+                        Text(
+                          _weatherEmoji(iconCode),
+                          style: const TextStyle(fontSize: 48),
                         ),
                         const SizedBox(width: 4),
                         Column(
@@ -436,7 +430,7 @@ class _WeatherCard extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        '오늘의 옷차림: $clothingRec',
+                        '오늘의 추천 옷차림: $clothingRec',
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -476,6 +470,21 @@ class _WeatherCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  static String _weatherEmoji(String code) {
+    switch (code.replaceFirst('n', 'd')) {
+      case '01d': return '☀️';
+      case '02d': return '🌤️';
+      case '03d': return '⛅';
+      case '04d': return '☁️';
+      case '09d': return '🌧️';
+      case '10d': return '🌦️';
+      case '11d': return '⛈️';
+      case '13d': return '❄️';
+      case '50d': return '🌫️';
+      default:    return '🌡️';
+    }
   }
 
   Widget _chip(String emoji, String label) {

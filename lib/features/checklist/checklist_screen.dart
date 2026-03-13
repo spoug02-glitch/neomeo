@@ -154,7 +154,7 @@ class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
     final alreadyAdded = state.any((i) =>
         i.label.contains('우산') || i.label.contains('마스크'));
     if (!alreadyAdded) {
-      add(label, '준비물');
+      add(label, '추천 준비물');
     }
   }
 }
@@ -329,6 +329,9 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
                     ),
                   ),
 
+                  // ── 추천 준비물 Section (최상단) ──────────────────
+                  _buildCategorySection(items, '추천 준비물', notifier, highlight: true),
+
                   // ── Supplies Section ──────────────────────────
                   _buildCategorySection(items, '준비물', notifier),
 
@@ -463,7 +466,7 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
     );
   }
 
-  Widget _buildCategorySection(List<ChecklistItem> items, String category, ChecklistNotifier notifier) {
+  Widget _buildCategorySection(List<ChecklistItem> items, String category, ChecklistNotifier notifier, {bool highlight = false}) {
     final filteredItems = items.where((i) => i.category == category).toList();
     if (filteredItems.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
 
@@ -475,16 +478,25 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 8),
-              child: Text(
-                category,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF64748B),
-                ),
+              child: Row(
+                children: [
+                  if (highlight) ...[
+                    const Icon(Icons.auto_awesome, size: 13, color: NeomeDesignSystem.primary),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    category,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: highlight ? NeomeDesignSystem.primary : const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
               ),
             ),
             Card(
+              color: highlight ? NeomeDesignSystem.primary.withOpacity(0.04) : null,
               child: Column(
                 children: filteredItems.asMap().entries.map((e) {
                   final item = e.value;
