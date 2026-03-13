@@ -26,45 +26,48 @@ class DailyNotifGuard {
 
   /// Call this when a geofence EXIT is detected.
   /// Returns true if a notification should be shown.
+  ///
+  /// 정책: 쿨다운 방식 (하루 N회 제한 없음)
+  ///   - 기본: 마지막 알림 후 3시간 이내면 차단
+  ///   - '다시 알림 받기' ON: 쿨다운 면제 (1회 소진 후 자동 해제)
+  ///   - DND 시간대: 항상 차단
   static Future<bool> canNotify() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Check DND
+    // 1. DND 체크
     final dndEnabled = prefs.getBool('dnd_enabled') ?? false;
     if (dndEnabled) {
       final startStr = prefs.getString('dnd_start') ?? '12:00';
-      final endStr = prefs.getString('dnd_end') ?? '13:00';
-      
+      final endStr   = prefs.getString('dnd_end')   ?? '13:00';
       final now = DateTime.now();
-      final startParts = startStr.split(':');
-      final endParts = endStr.split(':');
-      
-      final dndStart = DateTime(now.year, now.month, now.day, int.parse(startParts[0]), int.parse(startParts[1]));
-      final dndEnd = DateTime(now.year, now.month, now.day, int.parse(endParts[0]), int.parse(endParts[1]));
-      
+      final sp = startStr.split(':');
+      final ep = endStr.split(':');
+      final dndStart = DateTime(now.year, now.month, now.day,
+          int.parse(sp[0]), int.parse(sp[1]));
+      final dndEnd = DateTime(now.year, now.month, now.day,
+          int.parse(ep[0]), int.parse(ep[1]));
       if (now.isAfter(dndStart) && now.isBefore(dndEnd)) {
-        return false; // Suppress during DND
+        debugPrint('[DailyNotifGuard] Blocked: DND active');
+        return false;
       }
     }
 
-    final today = _todaySeoul();
-    final storedDate = prefs.getString(_kDate) ?? '';
+    // 2. 쿨다운 체크
     final extraAllowed = prefs.getBool(_kExtra) ?? false;
-    final maxCount = extraAllowed ? 2 : 1;
+    final lastNotifAt  = prefs.getInt(_kLastNotifAt) ?? 0;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
 
-    // New day → reset
-    if (storedDate != today) {
-      await prefs.setString(_kDate, today);
-      await prefs.setInt(_kCount, 0);
-      await prefs.setBool(_kExtra, false);
+    if (!extraAllowed && (nowMs - lastNotifAt) < _kCooldownMs) {
+      final minLeft = (_kCooldownMs - (nowMs - lastNotifAt)) ~/ 60000;
+      debugPrint('[DailyNotifGuard] Blocked: cooldown ${minLeft}m remaining');
+      return false;
     }
 
-    final count = prefs.getInt(_kCount) ?? 0;
-    if (count < maxCount) {
-      await prefs.setInt(_kCount, count + 1);
-      return true;
-    }
-    return false;
+    // 3. 발송 허용 — 상태 업데이트
+    await prefs.setInt(_kLastNotifAt, nowMs);
+    await prefs.setBool(_kExtra, false); // extra 1회 소진
+    debugPrint('[DailyNotifGuard] Allowed (extraWas=$extraAllowed)');
+    return true;
   }
 
   /// Toggle "다시 알림 받기" — allows one extra notification today (up to 2 total).

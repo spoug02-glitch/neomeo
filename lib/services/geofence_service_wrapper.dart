@@ -28,7 +28,7 @@ const _kDepartureRadius = 120.0;               // m: 이탈 후보 기준 (UT MV
 const _kResetRadius     = 80.0;                // m: 귀가 리셋 기준
 const _kConfirmDelay    = Duration(seconds: 30); // GPS 튐 방지 확인 시간
 const _kIntervalMs      = 10000;               // 위치 폴링 주기 (10 s)
-const _kAccuracyM       = 50;                  // 위치 정확도 허용 오차 (m)
+const _kAccuracyM       = 100;                 // 위치 정확도 허용 오차 (m) — 도심 GPS 오차 감안
 const _kStartupGrace    = Duration(seconds: 10); // 시작 직후 exit 무시 구간
 
 const _kOuterSuffix = ':outer'; // 100m 외곽 지오펜스 ID 접미사
