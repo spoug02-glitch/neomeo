@@ -19,6 +19,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:geofencing_api/geofencing_api.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import '../data/prefs_service.dart';
 import 'departure_message_service.dart';
 
@@ -147,6 +148,25 @@ class GeofenceServiceWrapper {
     await startMonitoring(place.lat, place.lon, place.id);
   }
 
+  /// flutter_foreground_task 초기화 — 앱 시작 시 한 번 호출
+  static void initForegroundTask() {
+    FlutterForegroundTask.init(
+      androidNotificationOptions: AndroidNotificationOptions(
+        channelId: 'geofence_fg_channel',
+        channelName: '너머 위치 모니터링',
+        channelImportance: NotificationChannelImportance.LOW,
+        priority: NotificationPriority.LOW,
+        enableVibration: false,
+        playSound: false,
+      ),
+      iosNotificationOptions: const IOSNotificationOptions(showNotification: false),
+      foregroundTaskOptions: const ForegroundTaskOptions(
+        eventAction: ForegroundTaskEventAction.nothing(),
+        autoRunOnBoot: false,
+      ),
+    );
+  }
+
   /// 직접 좌표를 지정해 모니터링 시작 (테스트 / 장소 변경 시 사용)
   Future<void> startMonitoring(double lat, double lon, String placeId) async {
     if (_running) await stopMonitoring();
@@ -185,6 +205,15 @@ class GeofenceServiceWrapper {
 
       await Geofencing.instance.start(regions: {outerRegion, innerRegion});
       _running = true;
+
+      // 포그라운드 서비스 시작 — 백그라운드에서도 프로세스 유지
+      if (!kIsWeb) {
+        await FlutterForegroundTask.startService(
+          serviceId: 256,
+          notificationTitle: '너머',
+          notificationText: '위치를 확인하고 있어요',
+        );
+      }
     } catch (e) {
       debugPrint('[Geofence] start() failed (권한 미허용?): $e');
       return;
@@ -206,6 +235,7 @@ class GeofenceServiceWrapper {
         .removeGeofenceStatusChangedListener(_onGeofenceStatusChanged);
     await Geofencing.instance.stop();
     _running = false;
+    if (!kIsWeb) await FlutterForegroundTask.stopService();
     debugPrint('[Geofence] Monitoring stopped');
   }
 

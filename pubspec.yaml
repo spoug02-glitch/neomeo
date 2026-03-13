@@ -28,6 +28,9 @@ dependencies:
   # Geofencing (background, Android 5.1+, successor of geofence_service)
   geofencing_api: ^2.0.0
 
+  # Foreground service — 백그라운드에서도 프로세스를 살려 지오펜스가 동작하게 함
+  flutter_foreground_task: ^8.14.0
+
   # Permissions
   permission_handler: ^11.3.1
 

@@ -69,6 +69,12 @@
         <!-- NOTE: fl_location의 ForegroundLocationService는 패키지의 자체
              AndroidManifest.xml에 선언되어 있어 gradle이 자동으로 merge한다.
              여기에 중복 선언하면 충돌이 발생할 수 있으므로 선언하지 않는다. -->
+
+        <!-- flutter_foreground_task: 백그라운드 프로세스 유지용 포그라운드 서비스 -->
+        <service
+            android:name="com.pravera.flutter_foreground_task.service.ForegroundTaskService"
+            android:foregroundServiceType="location"
+            android:stopWithTask="false" />
     </application>
 
     <queries>

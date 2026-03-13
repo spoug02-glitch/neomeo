@@ -11,6 +11,9 @@ import 'services/midnight_reset_worker.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 포그라운드 서비스 초기화 (지오펜스 백그라운드 유지용)
+  if (!kIsWeb) GeofenceServiceWrapper.initForegroundTask();
+
   // Notifications — set up tap deeplink handler
   try {
     await NotificationService().init(
