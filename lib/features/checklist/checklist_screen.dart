@@ -170,6 +170,7 @@ class ChecklistScreen extends ConsumerStatefulWidget {
 class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
   final _addCtrl = TextEditingController();
   String _selectedCategory = '준비물';
+  String? _weatherStatus;
 
   @override
   void initState() {
@@ -180,12 +181,43 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
   Future<void> _loadExtraState() async {
     final isExtra = await DailyNotifGuard.isExtraAllowed();
     ref.read(_extraProvider.notifier).state = isExtra;
-    
-    // Trigger auto-items check
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final notifier = ref.read(_itemsProvider(widget.outingType).notifier);
-      notifier.addAutoItems();
+      await notifier.addAutoItems();
+      _loadWeatherStatus();
     });
+  }
+
+  Future<void> _loadWeatherStatus() async {
+    final apiKey = await PrefsService.getWeatherApiKey();
+    if (apiKey.isEmpty) return;
+    final activePlace = await PrefsService.getActivePlace();
+    if (activePlace == null) return;
+    try {
+      final weather = await WeatherService.fetchWeather(
+          activePlace.lat, activePlace.lon, apiKey);
+      if (weather == null) return;
+      final iconCode = weather['weather'][0]['icon'] as String? ?? '';
+      final status = _iconToKorean(iconCode);
+      if (mounted) setState(() => _weatherStatus = status);
+    } catch (_) {}
+  }
+
+  static String _iconToKorean(String code) {
+    final c = code.endsWith('n') ? '${code.substring(0, code.length - 1)}d' : code;
+    switch (c) {
+      case '01d': return '맑음';
+      case '02d': return '구름 조금';
+      case '03d': return '구름 많음';
+      case '04d': return '흐림';
+      case '09d': return '소나기';
+      case '10d': return '비';
+      case '11d': return '뇌우';
+      case '13d': return '눈';
+      case '50d': return '안개';
+      default:    return '맑음';
+    }
   }
 
   @override
@@ -329,8 +361,40 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
                     ),
                   ),
 
-                  // ── 추천 준비물 Section (최상단) ──────────────────
-                  _buildCategorySection(items, '추천 준비물', notifier, highlight: true),
+                  // ── 추천 준비물 / 날씨 안내 (최상단) ─────────────
+                  if (items.any((i) => i.category == '추천 준비물'))
+                    _buildCategorySection(items, '추천 준비물', notifier, highlight: true)
+                  else if (_weatherStatus != null)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: NeomeDesignSystem.primary.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: NeomeDesignSystem.primary.withOpacity(0.15),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.wb_sunny_outlined,
+                                  size: 15, color: NeomeDesignSystem.primary),
+                              const SizedBox(width: 8),
+                              Text(
+                                '오늘의 날씨는 $_weatherStatus',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: NeomeDesignSystem.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
 
                   // ── Supplies Section ──────────────────────────
                   _buildCategorySection(items, '준비물', notifier),
