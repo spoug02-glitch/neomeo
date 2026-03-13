@@ -4,6 +4,7 @@
 // State is stored in SharedPreferences for atomic, fast access.
 // Date is resolved in Asia/Seoul timezone.
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 

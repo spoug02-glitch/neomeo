@@ -160,7 +160,7 @@ class GeofenceServiceWrapper {
         playSound: false,
       ),
       iosNotificationOptions: const IOSNotificationOptions(showNotification: false),
-      foregroundTaskOptions: const ForegroundTaskOptions(
+      foregroundTaskOptions: ForegroundTaskOptions(
         eventAction: ForegroundTaskEventAction.nothing(),
         autoRunOnBoot: false,
       ),
