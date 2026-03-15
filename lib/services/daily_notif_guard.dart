@@ -89,6 +89,14 @@ class DailyNotifGuard {
     return prefs.getBool(_kExtra) ?? false;
   }
 
+  /// 쿨다운 즉시 초기화 (테스트용 — 다음 외출 감지 시 즉시 알림 발송 가능)
+  static Future<void> resetCooldown() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kLastNotifAt, 0);
+    await prefs.setBool(_kExtra, false);
+    debugPrint('[DailyNotifGuard] Cooldown reset manually');
+  }
+
   /// Called by WorkManager midnight task — resets the daily counter.
   static Future<void> resetForNewDay() async {
     final prefs = await SharedPreferences.getInstance();

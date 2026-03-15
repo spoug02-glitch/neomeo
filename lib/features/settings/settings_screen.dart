@@ -7,6 +7,8 @@ import 'package:fl_location/fl_location.dart';
 import '../../data/prefs_service.dart';
 import '../../data/place.dart';
 import '../../services/geofence_service_wrapper.dart';
+import '../../services/daily_notif_guard.dart';
+import '../../services/notification_service.dart';
 import '../../app/design_system.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -525,6 +527,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
               icon: const Icon(Icons.replay, size: 16),
               label: const Text('온보딩 다시 보기'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+                foregroundColor: NeomeDesignSystem.textSub,
+                side: BorderSide(color: Colors.grey.shade300),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () async {
+                await DailyNotifGuard.resetCooldown();
+                await NotificationService().showDeparturePrompt();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('테스트 알림을 보냈어요!')),
+                  );
+                }
+              },
+              icon: const Icon(Icons.notifications_active, size: 16),
+              label: const Text('알림 테스트 (쿨다운 무시)'),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
                 foregroundColor: NeomeDesignSystem.textSub,

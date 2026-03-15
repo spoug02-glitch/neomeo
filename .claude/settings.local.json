@@ -23,7 +23,8 @@
       "Bash(git add:*)",
       "Bash(find /mnt/c/Users/fkfkf/Documents/neome_app/android -name \"*.gradle\" -o -name \"*.gradle.kts\" 2>/dev/null | head -20)",
       "Bash(find /mnt/c/Users/fkfkf -path \"*/geofencing_api*\" -name \"*.dart\" 2>/dev/null | head -10)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(find /mnt/c/Users/fkfkf/AppData/Local/Pub/Cache/hosted/pub.dev/ -path \"*flutter_foreground_task*\" -name \"*.kt\" 2>/dev/null | head -10)"
     ]
   }
 }
