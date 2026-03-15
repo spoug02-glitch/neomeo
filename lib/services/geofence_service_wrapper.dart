@@ -29,6 +29,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/prefs_service.dart';
 import 'departure_message_service.dart';
 import 'notification_service.dart';
+import 'geofence_log.dart';
 
 // ── 공통 상수 ─────────────────────────────────────────────────────────────────
 
@@ -62,8 +63,10 @@ Future<void> _onGeofenceStatusChanged(
   GeofenceStatus status,
   Location location,
 ) async {
-  debugPrint('[GeoTask-R] ${region.id} → $status '
-      'acc=${location.accuracy.toStringAsFixed(0)}m state=$_state');
+  final msg = '[R] ${region.id.split(':').last} $status '
+      'acc=${location.accuracy.toStringAsFixed(0)}m state=$_state';
+  debugPrint('[GeoTask-R] $msg');
+  await GeofenceLog.add(msg);
 
   // 시작 직후 grace period — 이미 밖에 있을 때 false-positive 방지
   final inGrace = _geoStartedAt != null &&
@@ -71,8 +74,12 @@ Future<void> _onGeofenceStatusChanged(
 
   final id = region.id;
   if (id.endsWith(_kOuterSuffix) && status == GeofenceStatus.exit) {
-    if (!inGrace) _handleDepartureCandidate();
-    else debugPrint('[GeoTask-R] exit ignored (startup grace)');
+    if (!inGrace) {
+      _handleDepartureCandidate();
+    } else {
+      debugPrint('[GeoTask-R] exit ignored (startup grace)');
+      await GeofenceLog.add('[R] exit ignored (startup grace)');
+    }
   } else if (id.endsWith(_kInnerSuffix) && status == GeofenceStatus.enter) {
     _handleReturnHome();
   }
@@ -80,9 +87,10 @@ Future<void> _onGeofenceStatusChanged(
 
 void _handleDepartureCandidate() {
   if (_state != _DepState.atHome) {
-    debugPrint('[GeoTask-R] exit ignored (state=$_state)');
+    GeofenceLog.add('[R] exit ignored (state=$_state)');
     return;
   }
+  GeofenceLog.add('[R] → PENDING (${_kConfirmDelay.inSeconds}s 타이머 시작)');
   debugPrint('[GeoTask-R] → pending (${_kConfirmDelay.inSeconds}s 타이머 시작)');
   _state = _DepState.pending;
   _confirmTimer?.cancel();
@@ -93,6 +101,7 @@ Future<void> _onDepartureConfirmed() async {
   if (_state != _DepState.pending) return;
   _state = _DepState.notified;
   debugPrint('[GeoTask-R] → 외출 확정! 알림 발송');
+  await GeofenceLog.add('[R] → NOTIFIED 알림 발송');
   await DepartureMessageService.composeAndSend();
   await PrefsService.clearChecklistSession();
 }
@@ -103,6 +112,7 @@ void _handleReturnHome() {
   _confirmTimer = null;
   _state = _DepState.atHome;
   debugPrint('[GeoTask-R] → atHome (was=$was)');
+  GeofenceLog.add('[R] → atHome (was=$was)');
 }
 
 // ── 포그라운드 서비스 진입점 (top-level 필수) ─────────────────────────────────
@@ -126,11 +136,11 @@ class GeofenceTaskHandler extends TaskHandler {
     await NotificationService().init();
 
     if (kReleaseMode) {
-      // Release: geofencing_api를 TaskHandler 아이솔레이트에서 시작
-      // → 메인 아이솔레이트와 달리 이 아이솔레이트는 앱 백그라운드/종료 시에도 살아있음
+      await GeofenceLog.add('[R] TaskHandler 시작 (release geofencing_api)');
       await _startReleaseGeofencing();
     } else {
       debugPrint('[GeoTask-D] TaskHandler started (10s polling mode)');
+      await GeofenceLog.add('[D] TaskHandler 시작 (debug 10s polling)');
     }
   }
 
@@ -167,8 +177,11 @@ class GeofenceTaskHandler extends TaskHandler {
       debugPrint('[GeoTask-R] geofencing_api started — '
           'lat=${place.lat} lon=${place.lon} '
           'outer=${_kDepartureRadius}m inner=${_kResetRadius}m');
+      await GeofenceLog.add('[R] geofencing_api 시작 완료 '
+          'outer=${_kDepartureRadius}m inner=${_kResetRadius}m');
     } catch (e) {
       debugPrint('[GeoTask-R] geofencing_api start failed: $e');
+      await GeofenceLog.add('[R] geofencing_api 시작 실패: $e');
     }
   }
 
@@ -210,14 +223,17 @@ class GeofenceTaskHandler extends TaskHandler {
     final prefs = await SharedPreferences.getInstance();
     final state = prefs.getString(_kStateKey) ?? 'atHome';
 
-    debugPrint('[GeoTask-D] dist=${dist.toStringAsFixed(0)}m '
-        'state=$state acc=${loc.accuracy.toStringAsFixed(0)}m');
+    final distStr = dist.toStringAsFixed(0);
+    final accStr = loc.accuracy.toStringAsFixed(0);
+    debugPrint('[GeoTask-D] dist=${distStr}m state=$state acc=${accStr}m');
+    // 10초마다 기록하면 너무 많아지므로 상태 변화 시에만 로그 기록
 
     if (dist > _kDepartureRadius) {
       if (state == 'atHome') {
         await prefs.setString(_kStateKey, 'pending');
         await prefs.setInt(_kPendingSinceMs, nowMs);
         debugPrint('[GeoTask-D] → pending (${_kConfirmDelay.inSeconds}s 타이머 시작)');
+        await GeofenceLog.add('[D] → PENDING dist=${distStr}m acc=${accStr}m');
       } else if (state == 'pending') {
         final since = prefs.getInt(_kPendingSinceMs) ?? nowMs;
         final elapsed = nowMs - since;
@@ -225,6 +241,7 @@ class GeofenceTaskHandler extends TaskHandler {
         if (elapsed >= _kConfirmDelay.inMilliseconds) {
           await prefs.setString(_kStateKey, 'notified');
           debugPrint('[GeoTask-D] → 외출 확정! 알림 발송');
+          await GeofenceLog.add('[D] → NOTIFIED 알림 발송 dist=${distStr}m');
           await DepartureMessageService.composeAndSend();
           await PrefsService.clearChecklistSession();
         }
@@ -235,6 +252,7 @@ class GeofenceTaskHandler extends TaskHandler {
         await prefs.setString(_kStateKey, 'atHome');
         await prefs.remove(_kPendingSinceMs);
         debugPrint('[GeoTask-D] → atHome (귀가 확인)');
+        await GeofenceLog.add('[D] → atHome dist=${distStr}m');
       }
     }
     // 60~80m: hysteresis zone

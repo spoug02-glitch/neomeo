@@ -9,6 +9,7 @@ import '../../data/place.dart';
 import '../../services/geofence_service_wrapper.dart';
 import '../../services/daily_notif_guard.dart';
 import '../../services/notification_service.dart';
+import '../../services/geofence_log.dart';
 import '../../app/design_system.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -34,6 +35,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _dustEnabled = false;
   double _tempSensitivity = 0.0;
 
+  // 지오펜스 이벤트 로그
+  List<String> _geoLogs = [];
+
   @override
   void initState() {
     super.initState();
@@ -57,6 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final weatherE = await PrefsService.isWeatherEnabled();
     final dustE = await PrefsService.isDustEnabled();
     final tempS = await PrefsService.getTempSensitivity();
+    final logs = await GeofenceLog.getAll();
 
     if (mounted) {
       setState(() {
@@ -69,6 +74,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _weatherEnabled = weatherE;
         _dustEnabled = dustE;
         _tempSensitivity = tempS;
+        _geoLogs = logs;
         _isLoading = false;
       });
     }
@@ -518,6 +524,76 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   );
                 },
               ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildSectionHeader('지오펜스 이벤트 로그'),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.refresh, size: 18),
+                      color: NeomeDesignSystem.textSub,
+                      tooltip: '새로고침',
+                      onPressed: () async {
+                        final logs = await GeofenceLog.getAll();
+                        if (mounted) setState(() => _geoLogs = logs);
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      color: NeomeDesignSystem.textSub,
+                      tooltip: '로그 초기화',
+                      onPressed: () async {
+                        await GeofenceLog.clear();
+                        if (mounted) setState(() => _geoLogs = []);
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            Card(
+              child: _geoLogs.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text(
+                        '기록된 이벤트가 없어요.\n집을 나갔다 돌아온 후 새로고침 해보세요.',
+                        style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                      ),
+                    )
+                  : ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _geoLogs.length,
+                      separatorBuilder: (_, __) =>
+                          const Divider(height: 1, indent: 12, endIndent: 12),
+                      itemBuilder: (_, i) {
+                        final entry = _geoLogs[i];
+                        // PENDING/NOTIFIED는 강조
+                        final isKey = entry.contains('PENDING') ||
+                            entry.contains('NOTIFIED') ||
+                            entry.contains('atHome');
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
+                          child: Text(
+                            entry,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontFamily: 'monospace',
+                              color: isKey
+                                  ? NeomeDesignSystem.primary
+                                  : const Color(0xFF475569),
+                              fontWeight: isKey
+                                  ? FontWeight.w700
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
             const SizedBox(height: 40),
             OutlinedButton.icon(
               onPressed: () async {
