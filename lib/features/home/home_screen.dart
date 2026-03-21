@@ -19,9 +19,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _homeSet = false;
+  String? _activePlaceId;
   Map<String, dynamic>? _currentWeather;
   String _clothingRec = '';
   bool _isLoadingWeather = true;
+  String _windInfo = '';
   bool _umbrellaRec = false;
   bool _maskRec = false;
   bool _isSavingLocation = false;
@@ -37,10 +39,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadWeather() async {
-    final apiKey = await PrefsService.getWeatherApiKey();
-    final activePlace = await PrefsService.getActivePlace();
-    final weatherEnabled = await PrefsService.isWeatherEnabled();
-    final dustEnabled = await PrefsService.isDustEnabled();
+    // 로컬 prefs 병렬 로드
+    final prefResults = await Future.wait([
+      PrefsService.getWeatherApiKey(),
+      PrefsService.getActivePlace(),
+      PrefsService.isWeatherEnabled(),
+      PrefsService.isDustEnabled(),
+      PrefsService.getTempSensitivity(),
+    ]);
+    final apiKey        = prefResults[0] as String;
+    final activePlace   = prefResults[1] as Place?;
+    final weatherEnabled = prefResults[2] as bool;
+    final dustEnabled   = prefResults[3] as bool;
+    final sensitivity   = prefResults[4] as double;
 
     if (apiKey.isEmpty || activePlace == null) {
       if (mounted) setState(() => _isLoadingWeather = false);
@@ -48,9 +59,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     try {
-      final weather = await WeatherService.fetchWeather(activePlace.lat, activePlace.lon, apiKey);
-      final forecast = await WeatherService.fetchForecast(activePlace.lat, activePlace.lon, apiKey);
-      final sensitivity = await PrefsService.getTempSensitivity();
+      // 3개 API 병렬 호출
+      final apiResults = await Future.wait([
+        WeatherService.fetchWeather(activePlace.lat, activePlace.lon, apiKey),
+        WeatherService.fetchForecast(activePlace.lat, activePlace.lon, apiKey),
+        WeatherService.fetchAirPollution(activePlace.lat, activePlace.lon, apiKey),
+      ]);
+      final weather  = apiResults[0] as Map<String, dynamic>?;
+      final forecast = apiResults[1] as List<dynamic>?;
+      final airData  = apiResults[2] as Map<String, dynamic>?;
 
       String rec = '';
       int precipPct = 0;
@@ -77,13 +94,13 @@ class _HomeScreenState extends State<HomeScreen> {
         isSnow = WeatherService.isSnowExpected(forecast);
       }
 
-      final airData = await WeatherService.fetchAirPollution(activePlace.lat, activePlace.lon, apiKey);
       final aqiValue = WeatherService.getAqiValue(airData);
 
       if (mounted) {
         setState(() {
           _currentWeather = weather;
           _clothingRec = rec;
+          _windInfo = WeatherService.getWindInfo(weather);
           _umbrellaRec = weatherEnabled && WeatherService.shouldBringUmbrella(weather);
           _maskRec = dustEnabled && WeatherService.shouldWearMask(airData);
           _precipPct = precipPct;
@@ -99,18 +116,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _checkHomeSet() async {
     final set = await GeofenceServiceWrapper.isHomeSet();
-    if (mounted) setState(() => _homeSet = set);
+    final activePlace = await PrefsService.getActivePlace();
+    if (mounted) setState(() {
+      _homeSet = set;
+      _activePlaceId = activePlace?.id;
+    });
   }
 
   Future<void> _saveCurrentLocationAsHome() async {
     setState(() => _isSavingLocation = true);
     debugPrint('[UT] 현재 위치 저장 시도...');
     try {
-      Location? loc;
-      try {
-        loc = await FlLocation.getLocation(accuracy: LocationAccuracy.low);
-      } catch (_) {}
-      loc ??= await FlLocation.getLocation(accuracy: LocationAccuracy.high);
+      final loc = await FlLocation.getLocation(accuracy: LocationAccuracy.high);
 
       final place = Place(
         id: const Uuid().v4(),
@@ -125,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
       debugPrint('[UT] 위치 저장 완료 — lat=${loc.latitude} lon=${loc.longitude}');
 
       if (mounted) {
-        setState(() { _homeSet = true; _isSavingLocation = false; });
+        setState(() { _homeSet = true; _isSavingLocation = false; _activePlaceId = place.id; });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('기준 위치가 설정되었습니다. 이 위치를 벗어나면 알려드릴게요.'),
@@ -145,8 +162,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _onOutingTap() {
-    context.go('/checklist?type=${Uri.encodeComponent('등교')}');
+  void _onHomeOutingTap() {
+    context.go('/checklist?type=${Uri.encodeComponent('외출')}');
   }
 
   @override
@@ -193,7 +210,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     else if (_currentWeather != null)
                       _WeatherCard(
                         temp: (_currentWeather!['main']['temp'] as num).toDouble(),
-                        description: _currentWeather!['weather'][0]['description'],
+                        windInfo: _windInfo,
                         iconCode: _currentWeather!['weather'][0]['icon'],
                         clothingRec: _clothingRec,
                         umbrellaRec: _umbrellaRec,
@@ -233,8 +250,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 20),
                     ],
 
-                    // ── 등교 체크리스트 카드 ──────────────────────
-                    _ChecklistCard(onTap: _onOutingTap),
+                    // ── 집 외출할 때 체크리스트 카드 ────────────────
+                    _ChecklistCard(
+                      onTap: _onHomeOutingTap,
+                      emoji: '🎒',
+                      title: '외출할 때',
+                      subtitle: '체크리스트 확인하기',
+                      settingsPlaceId: _activePlaceId,
+                    ),
                   ],
                 ),
               ),
@@ -251,7 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
 class _WeatherCard extends StatelessWidget {
   final double temp;
-  final String description;
+  final String windInfo;
   final String iconCode;
   final String clothingRec;
   final bool umbrellaRec;
@@ -262,7 +285,7 @@ class _WeatherCard extends StatelessWidget {
 
   const _WeatherCard({
     required this.temp,
-    required this.description,
+    required this.windInfo,
     required this.iconCode,
     required this.clothingRec,
     required this.umbrellaRec,
@@ -327,13 +350,14 @@ class _WeatherCard extends StatelessWidget {
                                 color: Color(0xFF1E293B),
                               ),
                             ),
-                            Text(
-                              description,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF94A3B8),
+                            if (windInfo.isNotEmpty)
+                              Text(
+                                windInfo,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF94A3B8),
+                                ),
                               ),
-                            ),
                           ],
                         ),
                       ],
@@ -443,29 +467,28 @@ class _WeatherCard extends StatelessWidget {
               ),
             ],
 
-            // ── 준비물 추천 (조건부) ──────────────────────────
-            if (umbrellaRec || maskRec) ...[
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.backpack_outlined,
-                      size: 15, color: NeomeDesignSystem.primary),
-                  const SizedBox(width: 6),
-                  const Text(
-                    '준비물',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF475569),
-                    ),
+            // ── 준비물 추천 ───────────────────────────────────
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.backpack_outlined,
+                    size: 15, color: NeomeDesignSystem.primary),
+                const SizedBox(width: 6),
+                const Text(
+                  '준비물',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF475569),
                   ),
-                  const SizedBox(width: 8),
-                  if (umbrellaRec) _chip('☂', '우산'),
-                  if (umbrellaRec && maskRec) const SizedBox(width: 6),
-                  if (maskRec) _chip('😷', '마스크'),
-                ],
-              ),
-            ],
+                ),
+                const SizedBox(width: 8),
+                if (umbrellaRec) _chip('☂', '우산'),
+                if (umbrellaRec && maskRec) const SizedBox(width: 6),
+                if (maskRec) _chip('😷', '마스크'),
+                if (!umbrellaRec && !maskRec) _chip('😊', '웃음'),
+              ],
+            ),
           ],
         ),
       ),
@@ -511,48 +534,85 @@ class _WeatherCard extends StatelessWidget {
 
 class _ChecklistCard extends StatelessWidget {
   final VoidCallback onTap;
-  const _ChecklistCard({required this.onTap});
+  final String emoji;
+  final String title;
+  final String subtitle;
+  final String? settingsPlaceId;
+
+  const _ChecklistCard({
+    required this.onTap,
+    this.emoji = '🎒',
+    this.title = '외출할 때',
+    this.subtitle = '체크리스트 확인하기',
+    this.settingsPlaceId,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+    return Stack(
+      children: [
+        InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(20),
-          color: Colors.white,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+              borderRadius: BorderRadius.circular(20),
+              color: Colors.white,
+            ),
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              children: [
+                Text(emoji, style: const TextStyle(fontSize: 36)),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: Colors.grey[400]),
+              ],
+            ),
+          ),
         ),
-        padding: const EdgeInsets.all(24),
-        child: Row(
-          children: [
-            const Text('🎒', style: TextStyle(fontSize: 36)),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '등교',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF1E293B),
-                    ),
+        if (settingsPlaceId != null)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => context.go(
+                  '/checklist-settings?placeId=$settingsPlaceId&type=${Uri.encodeComponent('외출')}',
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(
+                    Icons.settings_outlined,
+                    size: 18,
+                    color: Color(0xFFCBD5E1),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '체크리스트 확인하기',
-                    style: TextStyle(fontSize: 13, color: Colors.grey[500]),
-                  ),
-                ],
+                ),
               ),
             ),
-            Icon(Icons.chevron_right, color: Colors.grey[400]),
-          ],
-        ),
-      ),
+          ),
+      ],
     );
   }
 }

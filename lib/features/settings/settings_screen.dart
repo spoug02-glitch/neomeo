@@ -1,6 +1,7 @@
 // lib/features/settings/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:fl_location/fl_location.dart';
@@ -10,6 +11,7 @@ import '../../services/geofence_service_wrapper.dart';
 import '../../services/daily_notif_guard.dart';
 import '../../services/notification_service.dart';
 import '../../services/geofence_log.dart';
+import '../../services/geocoding_service.dart';
 import '../../app/design_system.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -38,10 +40,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // 지오펜스 이벤트 로그
   List<String> _geoLogs = [];
 
+  // 권한 상태
+  PermissionStatus _notifStatus   = PermissionStatus.denied;
+  PermissionStatus _locStatus     = PermissionStatus.denied;
+  PermissionStatus _locBgStatus   = PermissionStatus.denied;
+  PermissionStatus _batteryStatus = PermissionStatus.denied;
+  bool _isPermissionsExpanded = false;
+
   @override
   void initState() {
     super.initState();
     _loadData();
+    _loadPermissions();
   }
 
   @override
@@ -79,6 +89,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       });
     }
   }
+
+  Future<void> _loadPermissions() async {
+    final notif   = await Permission.notification.status;
+    final loc     = await Permission.locationWhenInUse.status;
+    final locBg   = await Permission.locationAlways.status;
+    final battery = await Permission.ignoreBatteryOptimizations.status;
+    if (mounted) {
+      setState(() {
+        _notifStatus   = notif;
+        _locStatus     = loc;
+        _locBgStatus   = locBg;
+        _batteryStatus = battery;
+      });
+    }
+  }
+
+  Future<String?> _reverseGeocode(double lat, double lon) =>
+      GeocodingService.reverseGeocode(lat, lon);
 
   Future<void> _pickTime() async {
     TimeOfDay initial;
@@ -185,7 +213,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: detailedAddressCtrl,
-                    decoration: const InputDecoration(labelText: '상세 주소', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(labelText: '상세 주소 (선택)', border: OutlineInputBorder()),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
@@ -193,11 +221,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       try {
                         final loc = await FlLocation.getLocation();
                         setDialogState(() {
-                          latCtrl.text = loc.latitude.toString();
-                          lonCtrl.text = loc.longitude.toString();
+                          latCtrl.text = loc.latitude.toStringAsFixed(6);
+                          lonCtrl.text = loc.longitude.toStringAsFixed(6);
                         });
+                        // 주소 역지오코딩
+                        final addr = await _reverseGeocode(loc.latitude, loc.longitude);
+                        if (addr != null && addressCtrl.text.trim().isEmpty) {
+                          setDialogState(() => addressCtrl.text = addr);
+                        }
                         if (ctx.mounted) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('현재 위치의 좌표를 가져왔습니다.')));
+                          ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                            content: Text(addr != null ? '위치: $addr' : '좌표를 가져왔습니다.'),
+                          ));
                         }
                       } catch (e) {
                         if (ctx.mounted) {
@@ -247,10 +282,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _editPlace(Place place) async {
-    final nameCtrl    = TextEditingController(text: place.name);
-    final addressCtrl = TextEditingController(text: place.address ?? '');
-    final latCtrl     = TextEditingController(text: place.lat != 0.0 ? place.lat.toString() : '');
-    final lonCtrl     = TextEditingController(text: place.lon != 0.0 ? place.lon.toString() : '');
+    final nameCtrl           = TextEditingController(text: place.name);
+    final addressCtrl        = TextEditingController(text: place.address ?? '');
+    final detailedAddressCtrl = TextEditingController(text: place.detailedAddress ?? '');
+    final latCtrl            = TextEditingController(text: place.lat != 0.0 ? place.lat.toString() : '');
+    final lonCtrl            = TextEditingController(text: place.lon != 0.0 ? place.lon.toString() : '');
     bool isFetching = false;
 
     final result = await showDialog<bool>(
@@ -270,7 +306,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: addressCtrl,
-                    decoration: const InputDecoration(labelText: '주소 (선택)', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(labelText: '주소', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: detailedAddressCtrl,
+                    decoration: const InputDecoration(labelText: '상세 주소 (선택)', border: OutlineInputBorder()),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
@@ -281,8 +322,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         setDialogState(() {
                           latCtrl.text = loc.latitude.toStringAsFixed(6);
                           lonCtrl.text  = loc.longitude.toStringAsFixed(6);
+                        });
+                        // 주소 역지오코딩
+                        final addr = await _reverseGeocode(loc.latitude, loc.longitude);
+                        setDialogState(() {
+                          if (addr != null && addressCtrl.text.trim().isEmpty) {
+                            addressCtrl.text = addr;
+                          }
                           isFetching = false;
                         });
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                            content: Text(addr != null ? '위치: $addr' : '좌표를 가져왔어요.'),
+                          ));
+                        }
                       } catch (_) {
                         setDialogState(() => isFetching = false);
                         if (ctx.mounted) {
@@ -295,26 +348,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.my_location, size: 18),
                     label: Text(isFetching ? '가져오는 중...' : '현재 위치 가져오기'),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: latCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                          decoration: const InputDecoration(labelText: '위도', border: OutlineInputBorder()),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: lonCtrl,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                          decoration: const InputDecoration(labelText: '경도', border: OutlineInputBorder()),
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
@@ -333,7 +366,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         id: place.id,
         name: nameCtrl.text.trim().isNotEmpty ? nameCtrl.text.trim() : place.name,
         address: addressCtrl.text.trim().isNotEmpty ? addressCtrl.text.trim() : null,
-        detailedAddress: place.detailedAddress,
+        detailedAddress: detailedAddressCtrl.text.trim().isNotEmpty ? detailedAddressCtrl.text.trim() : null,
         lat: double.tryParse(latCtrl.text.trim()) ?? place.lat,
         lon: double.tryParse(lonCtrl.text.trim()) ?? place.lon,
       );
@@ -387,17 +420,85 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionHeader('기본 설정'),
+            _buildSectionHeader('권한 관리'),
             Card(
-              child: ListTile(
-                title: const Text('준비 시작 시간'),
-                subtitle: Text(
-                  _prepTime != null
-                      ? '기본으로 도와드려요: $_prepTime'
-                      : '도와드려요: 설정이 안 됐어요',
-                ),
-                trailing: const Icon(Icons.access_time),
-                onTap: _pickTime,
+              child: Column(
+                children: [
+                  InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => setState(() => _isPermissionsExpanded = !_isPermissionsExpanded),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.security_outlined, size: 20, color: Color(0xFF94A3B8)),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text('필요한 권한',
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                          ),
+                          AnimatedRotation(
+                            turns: _isPermissionsExpanded ? 0.5 : 0.0,
+                            duration: const Duration(milliseconds: 200),
+                            child: const Icon(Icons.expand_more, size: 20, color: Color(0xFF94A3B8)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_isPermissionsExpanded) ...[
+                    const Divider(height: 1),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            await openAppSettings();
+                            await Future.delayed(const Duration(milliseconds: 800));
+                            _loadPermissions();
+                          },
+                          icon: const Icon(Icons.open_in_new, size: 14),
+                          label: const Text('앱 설정 열기'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: NeomeDesignSystem.primary,
+                            side: BorderSide(color: NeomeDesignSystem.primary.withOpacity(0.4)),
+                            textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    _buildPermissionTile(
+                      icon: Icons.notifications_outlined,
+                      title: '알림',
+                      subtitle: '외출 감지 시 체크리스트 알림',
+                      status: _notifStatus,
+                    ),
+                    const Divider(height: 1),
+                    _buildPermissionTile(
+                      icon: Icons.location_on_outlined,
+                      title: '위치 (앱 사용 중)',
+                      subtitle: '외출 감지에 필요해요',
+                      status: _locStatus,
+                    ),
+                    const Divider(height: 1),
+                    _buildPermissionTile(
+                      icon: Icons.location_searching,
+                      title: '위치 (항상 허용)',
+                      subtitle: '앱이 꺼진 상태에서도 감지해요',
+                      status: _locBgStatus,
+                    ),
+                    const Divider(height: 1),
+                    _buildPermissionTile(
+                      icon: Icons.battery_saver_outlined,
+                      title: '배터리 최적화 제외',
+                      subtitle: '백그라운드 동작이 안정적으로 유지돼요',
+                      status: _batteryStatus,
+                    ),
+                  ],
+                ],
               ),
             ),
             const SizedBox(height: 24),
@@ -507,19 +608,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
                     color: isActive ? NeomeDesignSystem.primary.withOpacity(0.06) : Colors.white,
-                    child: ListTile(
-                      onTap: () => _editPlace(p),
-                      title: Text(p.name, style: TextStyle(fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
-                      subtitle: p.address != null ? Text(p.address!) : null,
-                      leading: Radio<String>(
-                        value: p.id,
-                        groupValue: _activePlaceId,
-                        onChanged: (id) => _setActivePlace(id!),
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                        onPressed: () => _deletePlace(p.id),
-                      ),
+                    child: Column(
+                      children: [
+                        ListTile(
+                          onTap: () => _editPlace(p),
+                          title: Text(p.name, style: TextStyle(fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
+                          subtitle: p.address != null ? Text(p.address!) : null,
+                          leading: Radio<String>(
+                            value: p.id,
+                            groupValue: _activePlaceId,
+                            onChanged: (id) => _setActivePlace(id!),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                            onPressed: () => _deletePlace(p.id),
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: const Text('📋', style: TextStyle(fontSize: 18)),
+                          title: const Text('관련 체크리스트 : 외출'),
+                          subtitle: const Text('알림 시점 · 기본 준비물 관리'),
+                          trailing: const Icon(Icons.chevron_right, size: 18),
+                          onTap: () => context.go(
+                            '/checklist-settings?placeId=${p.id}&type=${Uri.encodeComponent('외출')}',
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 },
@@ -643,6 +758,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Text(
         title,
         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: NeomeDesignSystem.textSub),
+      ),
+    );
+  }
+
+  Widget _buildPermissionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required PermissionStatus status,
+  }) {
+    final granted = status.isGranted;
+    return ListTile(
+      leading: Icon(icon, color: granted ? NeomeDesignSystem.primary : const Color(0xFFCBD5E1), size: 22),
+      title: Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: granted
+              ? const Color(0xFF22C55E).withOpacity(0.1)
+              : const Color(0xFFEF4444).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          granted ? '허용됨' : '차단됨',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: granted ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+          ),
+        ),
       ),
     );
   }

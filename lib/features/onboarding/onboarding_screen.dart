@@ -10,9 +10,10 @@ import '../../data/place.dart';
 import 'package:fl_location/fl_location.dart';
 import '../../app/design_system.dart';
 import '../../services/geofence_service_wrapper.dart';
+import '../../services/geocoding_service.dart';
 
-// locationPerm → initial → fetching → (confirmation sheet) → form
-enum _LocationMode { locationPerm, initial, fetching, form }
+// initial → fetching → (confirmation sheet) → form
+enum _LocationMode { initial, fetching, form }
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -23,23 +24,26 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   // 0: Welcome
-  // 1: Permissions (알람)
-  // 2: Location
-  // 3: Done
+  // 1: 알람 권한
+  // 2: 위치 권한
+  // 3: 집 위치 설정
+  // 4: Done
   int _step = 0;
 
   // ── Location step ──────────────────────────────────────────────────────────
-  _LocationMode _locationMode = _LocationMode.locationPerm;
+  _LocationMode _locationMode = _LocationMode.initial;
   bool _isSaving = false;
   bool _showFetchAlternative = false;
+  bool _isFetchingAddress = false; // 폼 내에서 주소 인식 중
 
-  final _nameCtrl    = TextEditingController(text: '집');
-  final _addressCtrl = TextEditingController();
-  final _latCtrl     = TextEditingController();
-  final _lonCtrl     = TextEditingController();
-  final _nameFocusNode = FocusNode();
+  final _nameCtrl           = TextEditingController(text: '집');
+  final _addressCtrl        = TextEditingController(); // 수동 주소 입력용
+  final _detailedAddressCtrl = TextEditingController(); // 상세주소 입력용
+  final _latCtrl            = TextEditingController();
+  final _lonCtrl            = TextEditingController();
+  final _nameFocusNode      = FocusNode();
 
-  static const int _totalSteps = 3; // Welcome / 알람 / 위치
+  static const int _totalSteps = 3; // 알람 권한 / 위치 권한 / 집 위치 설정
 
   @override
   void initState() {
@@ -51,6 +55,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void dispose() {
     _nameCtrl.dispose();
     _addressCtrl.dispose();
+    _detailedAddressCtrl.dispose();
     _latCtrl.dispose();
     _lonCtrl.dispose();
     _nameFocusNode.dispose();
@@ -66,10 +71,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _requestNotificationPermission() async {
     await Permission.notification.request();
     await Permission.ignoreBatteryOptimizations.request();
-    setState(() {
-      _step = 2;
-      _locationMode = _LocationMode.locationPerm;
-    });
+    setState(() => _step = 2);
   }
 
   /// Android 11+ 2단계 위치 권한 플로우
@@ -81,7 +83,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         await _showAlwaysAllowGuide();
       }
     }
-    if (mounted) setState(() => _locationMode = _LocationMode.initial);
+    if (mounted) setState(() => _step = 3);
   }
 
   /// "항상 허용" 설정 앱 안내 다이얼로그
@@ -127,33 +129,56 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // ── 위치 가져오기 ──────────────────────────────────────────────────────────
 
   Future<void> _fetchCurrentLocation() async {
-    setState(() {
-      _locationMode = _LocationMode.fetching;
-      _showFetchAlternative = false;
-    });
-
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted && _locationMode == _LocationMode.fetching) {
-        setState(() => _showFetchAlternative = true);
-      }
-    });
+    // 폼 안에서 호출 시 → 화면 전환 없이 버튼만 로딩 상태로
+    final inForm = _locationMode == _LocationMode.form;
+    if (inForm) {
+      setState(() => _isFetchingAddress = true);
+    } else {
+      setState(() {
+        _locationMode = _LocationMode.fetching;
+        _showFetchAlternative = false;
+      });
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted && _locationMode == _LocationMode.fetching) {
+          setState(() => _showFetchAlternative = true);
+        }
+      });
+    }
 
     try {
-      Location? location;
-      try {
-        location = await FlLocation.getLocation(accuracy: LocationAccuracy.low);
-      } catch (_) {}
-
-      location ??= await FlLocation.getLocation(accuracy: LocationAccuracy.high);
+      final location = await FlLocation.getLocation(accuracy: LocationAccuracy.high);
 
       if (!mounted) return;
       _latCtrl.text = location.latitude.toStringAsFixed(6);
       _lonCtrl.text = location.longitude.toStringAsFixed(6);
-      setState(() => _locationMode = _LocationMode.form);
-      _showSnack('현재 위치를 가져왔어요!');
+
+      final addr = await GeocodingService.reverseGeocode(
+          location.latitude, location.longitude);
+      if (addr != null && _addressCtrl.text.trim().isEmpty) {
+        _addressCtrl.text = addr;
+      }
+
+      if (!mounted) return;
+      if (inForm) {
+        setState(() => _isFetchingAddress = false);
+      } else {
+        setState(() => _locationMode = _LocationMode.form);
+      }
+
+      // accuracy 필드: GPS 오차 반경(m). 50m 초과면 경고
+      final acc = location.accuracy;
+      if (acc != null && acc > 50) {
+        _showSnack('GPS 정확도가 낮아요 (오차 ±${acc.toStringAsFixed(0)}m). 야외에서 다시 시도해보세요.');
+      } else {
+        _showSnack(addr != null ? '위치: $addr' : '좌표를 가져왔어요.');
+      }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _locationMode = _LocationMode.form);
+      if (inForm) {
+        setState(() => _isFetchingAddress = false);
+      } else {
+        setState(() => _locationMode = _LocationMode.form);
+      }
       _showSnack('위치를 가져오지 못했어요. 직접 입력해주세요.');
     }
   }
@@ -164,6 +189,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       });
 
   void _useManualInput() => setState(() => _locationMode = _LocationMode.form);
+
+  Future<void> _skipLocation() async {
+    await PrefsService.markOnboardingDone();
+    if (mounted) setState(() => _step = 4);
+  }
 
   // ── 지도 확인 후 저장 ──────────────────────────────────────────────────────
 
@@ -199,10 +229,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
     setState(() => _isSaving = true);
 
+    final baseAddress = _addressCtrl.text.trim();
+    final detail = _detailedAddressCtrl.text.trim();
+    final fullAddress = [baseAddress, if (detail.isNotEmpty) detail]
+        .where((s) => s.isNotEmpty)
+        .join(' ');
+
     final newPlace = Place(
       id: const Uuid().v4(),
       name: name,
-      address: _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : null,
+      address: fullAddress.isNotEmpty ? fullAddress : null,
       lat: double.tryParse(_latCtrl.text.trim()) ?? 0.0,
       lon: double.tryParse(_lonCtrl.text.trim()) ?? 0.0,
     );
@@ -216,7 +252,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     await PrefsService.setDustEnabled(true);
     await PrefsService.markOnboardingDone();
 
-    if (mounted) setState(() { _isSaving = false; _step = 3; }); // → Done
+    if (mounted) setState(() { _isSaving = false; _step = 4; }); // → Done
   }
 
   void _showSnack(String msg) {
@@ -232,7 +268,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            if (_step > 0 && _step < 3) _buildProgressBar(),
+            if (_step > 0 && _step < 4) _buildProgressBar(),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
@@ -279,8 +315,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     switch (_step) {
       case 0: return _buildWelcomeStep();
       case 1: return _buildPermissionStep();
-      case 2: return _buildLocationStep();
-      case 3: return _buildDoneStep();
+      case 2: return _buildLocationPermStep();
+      case 3: return _buildLocationStep();
+      case 4: return _buildDoneStep();
       default: return const SizedBox();
     }
   }
@@ -341,10 +378,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _buildLocationStep() {
     switch (_locationMode) {
-      case _LocationMode.locationPerm: return _buildLocationPermStep();
-      case _LocationMode.initial:      return _buildLocationInitial();
-      case _LocationMode.fetching:     return _buildLocationFetching();
-      case _LocationMode.form:         return _buildLocationForm();
+      case _LocationMode.initial:  return _buildLocationInitial();
+      case _LocationMode.fetching: return _buildLocationFetching();
+      case _LocationMode.form:     return _buildLocationForm();
     }
   }
 
@@ -393,6 +429,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         _primaryButton('현재 위치 확인', _fetchCurrentLocation, icon: Icons.my_location),
         const SizedBox(height: 12),
         _outlinedButton('직접 설정하기', _useManualInput),
+        const SizedBox(height: 12),
+        _textButton('건너뛰기', _skipLocation),
       ],
     );
   }
@@ -439,18 +477,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           Text('장소 정보를 입력하고 등록해주세요.', style: NeomeDesignSystem.body2),
           const SizedBox(height: 28),
           _textField(controller: _nameCtrl, focusNode: _nameFocusNode, label: '장소 이름', hint: '예: 집, 회사'),
-          const SizedBox(height: 16),
-          _textField(controller: _addressCtrl, label: '주소 (선택)', hint: '도로명 또는 지번 주소'),
-          const SizedBox(height: 8),
-          TextButton.icon(
-            onPressed: _isSaving ? null : _fetchCurrentLocation,
-            icon: const Icon(Icons.my_location, size: 16),
-            label: const Text('현재 위치 자동 인식'),
-            style: TextButton.styleFrom(foregroundColor: NeomeDesignSystem.primary),
+          const SizedBox(height: 12),
+          _textField(controller: _addressCtrl, label: '주소', hint: '도로명 또는 지번 주소'),
+          const SizedBox(height: 12),
+          _textField(controller: _detailedAddressCtrl, label: '상세 주소 (선택)', hint: '동/호수, 층수 등'),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: (_isSaving || _isFetchingAddress) ? null : _fetchCurrentLocation,
+            icon: _isFetchingAddress
+                ? const SizedBox(
+                    width: 16, height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: NeomeDesignSystem.primary),
+                  )
+                : const Icon(Icons.my_location, size: 18),
+            label: Text(_isFetchingAddress ? '위치 확인 중...' : '현재 위치 자동 인식'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 48),
+              foregroundColor: NeomeDesignSystem.primary,
+              side: BorderSide(color: NeomeDesignSystem.primary.withOpacity(0.5)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           ),
           const SizedBox(height: 24),
           _primaryButton('등록하고 시작하기', _isSaving ? null : _confirmAndSave, loading: _isSaving),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          _textButton('건너뛰기', _isSaving ? null : _skipLocation),
+          const SizedBox(height: 8),
         ],
       ),
     );
