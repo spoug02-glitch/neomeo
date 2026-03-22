@@ -109,6 +109,7 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
     if (_allPlaces.isEmpty) return;
     final picked = await showModalBottomSheet<String>(
       context: context,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => Column(
@@ -183,7 +184,8 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
             onPressed: () => context.pop(),
           ),
         ),
-        body: SingleChildScrollView(
+        body: SafeArea(
+          child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -317,6 +319,7 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
               const SizedBox(height: 40),
             ],
           ),
+        ),
         ),
       ),
     );
