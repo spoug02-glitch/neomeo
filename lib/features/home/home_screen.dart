@@ -85,9 +85,9 @@ class _HomeScreenState extends State<HomeScreen> {
         final tempDiff = maxTemp - minTemp;
 
         if (tempDiff >= 8) {
-          rec = '$baseClothing + 가디건 (기온: ${minTemp.toStringAsFixed(0)}°~${maxTemp.toStringAsFixed(0)}°)';
+          rec = '$baseClothing + 가디건 (예보: ${minTemp.toStringAsFixed(0)}°~${maxTemp.toStringAsFixed(0)}°)';
         } else {
-          rec = '$baseClothing (기온: ${minTemp.toStringAsFixed(0)}°~${maxTemp.toStringAsFixed(0)}°)';
+          rec = '$baseClothing (예보: ${minTemp.toStringAsFixed(0)}°~${maxTemp.toStringAsFixed(0)}°)';
         }
 
         precipPct = WeatherService.getMaxPrecipProb(forecast);

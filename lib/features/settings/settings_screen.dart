@@ -588,12 +588,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildSectionHeader('장소 관리'),
-                IconButton(onPressed: _addPlace, icon: const Icon(Icons.add_circle, color: NeomeDesignSystem.primary)),
-              ],
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12, left: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '장소 관리',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: NeomeDesignSystem.textSub),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _addPlace,
+                    child: const Icon(Icons.add_circle, color: NeomeDesignSystem.primary, size: 24),
+                  ),
+                ],
+              ),
             ),
             if (_places.isEmpty)
               const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('등록된 장소가 없습니다.')))
@@ -606,32 +617,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   final p = _places[i];
                   final isActive = p.id == _activePlaceId;
                   return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    color: isActive ? NeomeDesignSystem.primary.withOpacity(0.06) : Colors.white,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    color: Colors.white,
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // ── 장소 정보 행 ──────────────────────────────
                         ListTile(
                           onTap: () => _editPlace(p),
-                          title: Text(p.name, style: TextStyle(fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
-                          subtitle: p.address != null ? Text(p.address!) : null,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          title: Text(
+                            p.name,
+                            style: TextStyle(
+                              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                              color: isActive ? NeomeDesignSystem.primary : const Color(0xFF1E293B),
+                            ),
+                          ),
+                          subtitle: p.address != null
+                              ? Text(p.address!, style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)))
+                              : null,
                           leading: Radio<String>(
                             value: p.id,
                             groupValue: _activePlaceId,
                             onChanged: (id) => _setActivePlace(id!),
+                            activeColor: NeomeDesignSystem.primary,
                           ),
                           trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
                             onPressed: () => _deletePlace(p.id),
                           ),
                         ),
-                        const Divider(height: 1),
-                        ListTile(
-                          leading: const Text('📋', style: TextStyle(fontSize: 18)),
-                          title: const Text('관련 체크리스트 : 외출'),
-                          subtitle: const Text('알림 시점 · 기본 준비물 관리'),
-                          trailing: const Icon(Icons.chevron_right, size: 18),
-                          onTap: () => context.go(
-                            '/checklist-settings?placeId=${p.id}&type=${Uri.encodeComponent('외출')}',
+                        // ── 집 관련 체크리스트 링크 ──────────────────────
+                        Container(
+                          margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: () => context.go(
+                              '/checklist-settings?placeId=${p.id}&type=${Uri.encodeComponent('외출')}',
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              child: Row(
+                                children: [
+                                  const Text('📋', style: TextStyle(fontSize: 16)),
+                                  const SizedBox(width: 10),
+                                  const Expanded(
+                                    child: Text(
+                                      '집 체크리스트 설정',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF475569),
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(Icons.chevron_right, size: 18, color: Color(0xFF94A3B8)),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ],
