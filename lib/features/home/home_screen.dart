@@ -598,7 +598,7 @@ class _ChecklistCard extends StatelessWidget {
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(20),
-                onTap: () => context.go(
+                onTap: () => context.push(
                   '/checklist-settings?placeId=$settingsPlaceId&type=${Uri.encodeComponent('외출')}',
                 ),
                 child: const Padding(

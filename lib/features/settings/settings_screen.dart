@@ -656,7 +656,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(10),
-                            onTap: () => context.go(
+                            onTap: () => context.push(
                               '/checklist-settings?placeId=${p.id}&type=${Uri.encodeComponent('외출')}',
                             ),
                             child: Padding(

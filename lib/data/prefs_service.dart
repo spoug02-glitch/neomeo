@@ -187,6 +187,77 @@ class PrefsService {
     await p.remove(_kChecklistSession);
   }
 
+  // ── Per-place checklist trigger ────────────────────────────────────────────
+  // 'depart' (집 나갈 때, 기본값) | 'enter' (집 들어올 때)
+
+  static String _kChecklistTrigger(String placeId) => 'checklist_trigger_$placeId';
+
+  static Future<String> getChecklistTrigger(String placeId) async {
+    final p = await SharedPreferences.getInstance();
+    return p.getString(_kChecklistTrigger(placeId)) ?? 'depart';
+  }
+
+  static Future<void> setChecklistTrigger(String placeId, String trigger) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kChecklistTrigger(placeId), trigger);
+  }
+
+  // ── Per-type custom checklist items ───────────────────────────────────────
+  // 형식: List<String> — label 배열
+
+  static String _kCustomItems(String outingType) =>
+      'custom_checklist_${outingType.replaceAll(' ', '_')}';
+
+  static Future<List<Map<String, dynamic>>> getCustomChecklistItems(String outingType) async {
+    final p = await SharedPreferences.getInstance();
+    final raw = p.getStringList(_kCustomItems(outingType)) ?? [];
+    return raw.map((s) {
+      try {
+        return jsonDecode(s) as Map<String, dynamic>;
+      } catch (_) {
+        return <String, dynamic>{'label': s, 'category': '준비물'};
+      }
+    }).toList();
+  }
+
+  static Future<void> saveCustomChecklistItems(
+      String outingType, List<Map<String, dynamic>> items) async {
+    final p = await SharedPreferences.getInstance();
+    final encoded = items.map((m) => jsonEncode(m)).toList();
+    await p.setStringList(_kCustomItems(outingType), encoded);
+  }
+
+  static String _kChecklistTriggerTime(String placeId) =>
+      'checklist_trigger_time_$placeId';
+
+  static Future<String?> getChecklistTriggerTime(String placeId) async {
+    final p = await SharedPreferences.getInstance();
+    return p.getString(_kChecklistTriggerTime(placeId));
+  }
+
+  static Future<void> setChecklistTriggerTime(String placeId, String hhmm) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_kChecklistTriggerTime(placeId), hhmm);
+  }
+
+  static String _kChecklistTriggerDays(String placeId) =>
+      'checklist_trigger_days_$placeId';
+
+  /// 선택된 요일 목록. 0=일, 1=월, ..., 6=토. 기본값: 매일(0~6).
+  static Future<List<int>> getChecklistTriggerDays(String placeId) async {
+    final p = await SharedPreferences.getInstance();
+    final stored = p.getStringList(_kChecklistTriggerDays(placeId));
+    if (stored == null) return [0, 1, 2, 3, 4, 5, 6];
+    return stored.map(int.parse).toList();
+  }
+
+  static Future<void> setChecklistTriggerDays(
+      String placeId, List<int> days) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setStringList(
+        _kChecklistTriggerDays(placeId), days.map((d) => '$d').toList());
+  }
+
   // ── Alarm Mode (시간 vs 위치) ──────────────────────────────────────────────
 
   static const _kAlarmMode = 'alarm_mode'; // 'time' | 'location'
