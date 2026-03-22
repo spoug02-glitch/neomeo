@@ -17,30 +17,7 @@ class GeocodingService {
 
     final headers = {'Authorization': 'KakaoAK $key'};
 
-    // ── 1차: 행정동 기반 주소 ─────────────────────────────
-    try {
-      final uri = Uri.parse(
-        '$_baseUrl/coord2regioncode.json?x=$lon&y=$lat',
-      );
-      final res = await http
-          .get(uri, headers: headers)
-          .timeout(const Duration(seconds: 6));
-
-      if (res.statusCode == 200) {
-        final docs = (jsonDecode(res.body)['documents'] as List?) ?? [];
-        // region_type H = 행정동, B = 법정동 — H 우선
-        final h = docs.firstWhere(
-          (d) => d['region_type'] == 'H',
-          orElse: () => docs.isNotEmpty ? docs[0] : null,
-        );
-        if (h != null) {
-          final name = h['address_name'] as String?;
-          if (name != null && name.isNotEmpty) return name;
-        }
-      }
-    } catch (_) {}
-
-    // ── 2차: 지번 주소 fallback ───────────────────────────
+    // ── 1차: 도로명 주소 (coord2address) ─────────────────
     try {
       final uri = Uri.parse(
         '$_baseUrl/coord2address.json?x=$lon&y=$lat',
@@ -52,11 +29,34 @@ class GeocodingService {
       if (res.statusCode == 200) {
         final docs = (jsonDecode(res.body)['documents'] as List?) ?? [];
         if (docs.isNotEmpty) {
-          final jibun = docs[0]['address']?['address_name'] as String?;
-          if (jibun != null && jibun.isNotEmpty) return jibun;
-
+          // 도로명 우선, 없으면 지번
           final road = docs[0]['road_address']?['address_name'] as String?;
           if (road != null && road.isNotEmpty) return road;
+
+          final jibun = docs[0]['address']?['address_name'] as String?;
+          if (jibun != null && jibun.isNotEmpty) return jibun;
+        }
+      }
+    } catch (_) {}
+
+    // ── 2차: 행정동 이름 fallback (coord2regioncode) ──────
+    try {
+      final uri = Uri.parse(
+        '$_baseUrl/coord2regioncode.json?x=$lon&y=$lat',
+      );
+      final res = await http
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 6));
+
+      if (res.statusCode == 200) {
+        final docs = (jsonDecode(res.body)['documents'] as List?) ?? [];
+        final h = docs.firstWhere(
+          (d) => d['region_type'] == 'H',
+          orElse: () => docs.isNotEmpty ? docs[0] : null,
+        );
+        if (h != null) {
+          final name = h['address_name'] as String?;
+          if (name != null && name.isNotEmpty) return name;
         }
       }
     } catch (_) {}
