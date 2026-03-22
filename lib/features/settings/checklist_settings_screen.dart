@@ -21,7 +21,7 @@ class ChecklistSettingsScreen extends StatefulWidget {
 }
 
 class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
-  String _trigger = 'depart'; // 'depart' | 'enter' | 'time'
+  Set<String> _triggers = {'depart'}; // 복수 선택 가능
   String? _triggerTime;
   List<int> _triggerDays = [0, 1, 2, 3, 4, 5, 6]; // 0=일~6=토
   String _placeId = '';
@@ -39,7 +39,7 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
   }
 
   Future<void> _load() async {
-    final trigger     = await PrefsService.getChecklistTrigger(_placeId);
+    final triggers    = await PrefsService.getChecklistTriggers(_placeId);
     final triggerTime = await PrefsService.getChecklistTriggerTime(_placeId);
     final triggerDays = await PrefsService.getChecklistTriggerDays(_placeId);
     final places      = await PrefsService.getPlaces();
@@ -47,7 +47,7 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
 
     if (mounted) {
       setState(() {
-        _trigger     = trigger;
+        _triggers    = triggers.toSet();
         _triggerTime = triggerTime;
         _triggerDays = triggerDays;
         _allPlaces   = places;
@@ -57,12 +57,20 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
     }
   }
 
-  Future<void> _setTrigger(String val) async {
-    await PrefsService.setChecklistTrigger(_placeId, val);
-    setState(() => _trigger = val);
-    if (val == 'time' && _triggerTime == null) {
-      await _pickTime();
+  Future<void> _toggleTrigger(String val) async {
+    final updated = Set<String>.from(_triggers);
+    if (updated.contains(val)) {
+      // 마지막 하나는 해제 불가
+      if (updated.length == 1) return;
+      updated.remove(val);
+    } else {
+      updated.add(val);
+      if (val == 'time' && _triggerTime == null) {
+        await _pickTime();
+      }
     }
+    await PrefsService.setChecklistTriggers(_placeId, updated.toList());
+    setState(() => _triggers = updated);
   }
 
   Future<void> _pickTime() async {
@@ -93,14 +101,11 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
     setState(() => _triggerDays = updated);
   }
 
-  /// 영업일 제외: 주말(일=0, 토=6) 제외, 월~금만 선택
   bool get _isWeekdayOnly =>
       !_triggerDays.contains(0) && !_triggerDays.contains(6);
 
   Future<void> _toggleWeekdayOnly(bool val) async {
-    final updated = val
-        ? [1, 2, 3, 4, 5]
-        : [0, 1, 2, 3, 4, 5, 6];
+    final updated = val ? [1, 2, 3, 4, 5] : [0, 1, 2, 3, 4, 5, 6];
     await PrefsService.setChecklistTriggerDays(_placeId, updated);
     setState(() => _triggerDays = updated);
   }
@@ -149,7 +154,7 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
     );
     if (picked != null && picked != _placeId) {
       final place = _allPlaces.firstWhere((p) => p.id == picked);
-      await PrefsService.setChecklistTrigger(picked, _trigger);
+      await PrefsService.setChecklistTriggers(picked, _triggers.toList());
       if (_triggerTime != null) {
         await PrefsService.setChecklistTriggerTime(picked, _triggerTime!);
       }
@@ -166,6 +171,8 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+
+    final hasTime = _triggers.contains('time');
 
     return PopScope(
       canPop: false,
@@ -186,146 +193,182 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
         ),
         body: SafeArea(
           child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── 알림 시점 ────────────────────────────────────────
-              _sectionHeader('알림 시점'),
-              Card(
-                child: Column(
-                  children: [
-                    RadioListTile<String>(
-                      title: _triggerTitle(' 나갈 때'),
-                      subtitle: const Text('장소를 벗어날 때 알림을 받아요'),
-                      value: 'depart',
-                      groupValue: _trigger,
-                      onChanged: (v) => _setTrigger(v!),
-                      activeColor: NeomeDesignSystem.primary,
-                    ),
-                    const Divider(height: 1),
-                    RadioListTile<String>(
-                      title: _triggerTitle(' 들어올 때'),
-                      subtitle: const Text('장소에 돌아왔을 때 알림을 받아요'),
-                      value: 'enter',
-                      groupValue: _trigger,
-                      onChanged: (v) => _setTrigger(v!),
-                      activeColor: NeomeDesignSystem.primary,
-                    ),
-                    const Divider(height: 1),
-                    RadioListTile<String>(
-                      title: Row(
-                        children: [
-                          const Text('특정 시간'),
-                          if (_trigger == 'time' && _triggerTime != null) ...[
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: _pickTime,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: NeomeDesignSystem.primary.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  _triggerTime!,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: NeomeDesignSystem.primary,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── 알림 시점 ────────────────────────────────────────
+                _sectionHeader('알림 시점'),
+                Card(
+                  child: Column(
+                    children: [
+                      // ── 집 나갈 때 ──────────────────────────────────
+                      CheckboxListTile(
+                        title: _triggerTitle(' 나갈 때'),
+                        subtitle: const Text('장소를 벗어날 때 알림을 받아요'),
+                        value: _triggers.contains('depart'),
+                        onChanged: (_) => _toggleTrigger('depart'),
+                        activeColor: NeomeDesignSystem.primary,
+                        checkboxShape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4)),
+                        controlAffinity: ListTileControlAffinity.leading,
                       ),
-                      subtitle: const Text('설정한 요일과 시간에 알림을 받아요'),
-                      value: 'time',
-                      groupValue: _trigger,
-                      onChanged: (v) => _setTrigger(v!),
-                      activeColor: NeomeDesignSystem.primary,
-                    ),
-                    // ── 요일 선택 (특정 시간 선택 시에만 표시) ──────
-                    if (_trigger == 'time') ...[
                       const Divider(height: 1),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      // ── 집 들어올 때 ────────────────────────────────
+                      CheckboxListTile(
+                        title: _triggerTitle(' 들어올 때'),
+                        subtitle: const Text('장소에 돌아왔을 때 알림을 받아요'),
+                        value: _triggers.contains('enter'),
+                        onChanged: (_) => _toggleTrigger('enter'),
+                        activeColor: NeomeDesignSystem.primary,
+                        checkboxShape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4)),
+                        controlAffinity: ListTileControlAffinity.leading,
+                      ),
+                      const Divider(height: 1),
+                      // ── 특정 시간 ────────────────────────────────────
+                      CheckboxListTile(
+                        title: Row(
                           children: [
-                            const Text(
-                              '요일 선택',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF64748B),
+                            const Text('특정 시간'),
+                            if (hasTime && _triggerTime != null) ...[
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: _pickTime,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: NeomeDesignSystem.primary
+                                        .withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    _triggerTime!,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: NeomeDesignSystem.primary,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 10),
-                            // 일~토 토글 버튼
-                            Row(
-                              children: [
-                                for (int i = 0; i < 7; i++)
-                                  Padding(
-                                    padding: EdgeInsets.only(right: i < 6 ? 6 : 0),
-                                    child: _DayChip(
-                                      label: _dayLabels[i],
-                                      selected: _triggerDays.contains(i),
-                                      onTap: () => _toggleDay(i),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            // 영업일 제외 체크박스 (별도 줄)
-                            GestureDetector(
-                              onTap: () => _toggleWeekdayOnly(!_isWeekdayOnly),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                            ],
+                          ],
+                        ),
+                        subtitle: const Text('설정한 요일과 시간에 알림을 받아요'),
+                        value: hasTime,
+                        onChanged: (_) => _toggleTrigger('time'),
+                        activeColor: NeomeDesignSystem.primary,
+                        checkboxShape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4)),
+                        controlAffinity: ListTileControlAffinity.leading,
+                      ),
+                      // ── 요일 선택 (특정 시간 선택 시에만) ──────────────
+                      if (hasTime) ...[
+                        const Divider(height: 1),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '요일 선택',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
                                 children: [
-                                  SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: Checkbox(
-                                      value: _isWeekdayOnly,
-                                      onChanged: (v) =>
-                                          _toggleWeekdayOnly(v ?? false),
-                                      activeColor: NeomeDesignSystem.primary,
-                                      materialTapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                      visualDensity: VisualDensity.compact,
+                                  for (int i = 0; i < 7; i++)
+                                    Padding(
+                                      padding:
+                                          EdgeInsets.only(right: i < 6 ? 6 : 0),
+                                      child: _DayChip(
+                                        label: _dayLabels[i],
+                                        selected: _triggerDays.contains(i),
+                                        onTap: () => _toggleDay(i),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  const Text(
-                                    '영업일 제외',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xFF64748B),
-                                    ),
-                                  ),
                                 ],
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 10),
+                              GestureDetector(
+                                onTap: () =>
+                                    _toggleWeekdayOnly(!_isWeekdayOnly),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: Checkbox(
+                                        value: _isWeekdayOnly,
+                                        onChanged: (v) =>
+                                            _toggleWeekdayOnly(v ?? false),
+                                        activeColor: NeomeDesignSystem.primary,
+                                        materialTapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Text(
+                                      '영업일 제외',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                // ── 안내 메시지 ──────────────────────────────────────
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.info_outline,
+                          size: 15, color: Color(0xFF94A3B8)),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '나갈 때, 들어올 때, 특정 시간을 동시에 선택할 수 있어요.\n동일 알림은 1시간 이내에 반복 발송되지 않아요.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF94A3B8),
+                            height: 1.5,
+                          ),
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 40),
-            ],
+                const SizedBox(height: 40),
+              ],
+            ),
           ),
-        ),
         ),
       ),
     );
   }
 
-  /// 장소명(밑줄+색)과 suffix 텍스트를 합쳐서 반환.
   Widget _triggerTitle(String suffix) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -333,7 +376,9 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
       child: RichText(
         text: TextSpan(
           style: const TextStyle(
-              fontSize: 15, color: Color(0xFF1E293B), fontWeight: FontWeight.w500),
+              fontSize: 15,
+              color: Color(0xFF1E293B),
+              fontWeight: FontWeight.w500),
           children: [
             TextSpan(
               text: _placeName,

@@ -191,15 +191,33 @@ class PrefsService {
   // 'depart' (집 나갈 때, 기본값) | 'enter' (집 들어올 때)
 
   static String _kChecklistTrigger(String placeId) => 'checklist_trigger_$placeId';
+  static String _kChecklistTriggers(String placeId) => 'checklist_triggers_$placeId';
 
+  /// 하위 호환: 단일 트리거 읽기 (getChecklistTriggers 사용 권장)
   static Future<String> getChecklistTrigger(String placeId) async {
-    final p = await SharedPreferences.getInstance();
-    return p.getString(_kChecklistTrigger(placeId)) ?? 'depart';
+    final triggers = await getChecklistTriggers(placeId);
+    return triggers.first;
   }
 
+  /// 하위 호환: 단일 트리거 저장 (setChecklistTriggers 사용 권장)
   static Future<void> setChecklistTrigger(String placeId, String trigger) async {
+    await setChecklistTriggers(placeId, [trigger]);
+  }
+
+  /// 복수 트리거 읽기. 기본값: ['depart']
+  static Future<List<String>> getChecklistTriggers(String placeId) async {
     final p = await SharedPreferences.getInstance();
-    await p.setString(_kChecklistTrigger(placeId), trigger);
+    // 새 복수 키 우선, 없으면 구 단일 키 마이그레이션
+    final multi = p.getStringList(_kChecklistTriggers(placeId));
+    if (multi != null) return multi;
+    final single = p.getString(_kChecklistTrigger(placeId));
+    return [single ?? 'depart'];
+  }
+
+  static Future<void> setChecklistTriggers(
+      String placeId, List<String> triggers) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setStringList(_kChecklistTriggers(placeId), triggers);
   }
 
   // ── Per-type custom checklist items ───────────────────────────────────────
