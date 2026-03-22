@@ -137,4 +137,20 @@ class WeatherService {
     if (main == null) return 0;
     return (main['aqi'] as int?) ?? 0;
   }
+
+  /// OWM 풍향각(도)을 한국어 8방위로 변환한다.
+  static String _windDirection(int deg) {
+    const dirs = ['북', '북동', '동', '남동', '남', '남서', '서', '북서'];
+    return dirs[((deg + 22.5) / 45).floor() % 8];
+  }
+
+  /// 현재 날씨 데이터에서 풍향·풍속 문자열을 반환한다. (예: "서풍 3.2m/s")
+  static String getWindInfo(Map<String, dynamic>? weatherData) {
+    if (weatherData == null) return '';
+    final wind = weatherData['wind'] as Map<String, dynamic>?;
+    if (wind == null) return '';
+    final deg = (wind['deg'] as num?)?.toInt() ?? 0;
+    final speed = (wind['speed'] as num?)?.toDouble() ?? 0.0;
+    return '${_windDirection(deg)}풍 ${speed.toStringAsFixed(1)}m/s';
+  }
 }

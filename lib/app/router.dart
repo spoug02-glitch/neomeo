@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../features/home/home_screen.dart';
 import '../features/checklist/checklist_screen.dart';
 import '../features/settings/settings_screen.dart';
+import '../features/settings/checklist_settings_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/calendar/calendar_screen.dart';
 import '../features/outing_select/outing_select_screen.dart';
@@ -38,6 +39,14 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/outing-select',
       builder: (_, __) => const OutingSelectScreen(),
+    ),
+    GoRoute(
+      path: '/checklist-settings',
+      builder: (_, state) {
+        final placeId    = state.uri.queryParameters['placeId']    ?? '';
+        final outingType = state.uri.queryParameters['type']       ?? '외출';
+        return ChecklistSettingsScreen(placeId: placeId, outingType: outingType);
+      },
     ),
   ],
   redirect: (context, state) async {

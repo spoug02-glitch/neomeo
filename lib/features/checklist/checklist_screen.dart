@@ -12,6 +12,7 @@ import '../../data/prefs_service.dart';
 import '../../app/design_system.dart';
 import '../../services/daily_notif_guard.dart';
 import '../../services/weather_service.dart';
+import '../../data/place.dart';
 
 final _itemsProvider =
     StateNotifierProvider.family<ChecklistNotifier, List<ChecklistItem>, String>(
@@ -21,7 +22,11 @@ final _itemsProvider =
 final _extraProvider = StateProvider<bool>((ref) => false);
 
 class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
-  ChecklistNotifier(String type) : super(_initializeItems(type)) {
+  final String _type;
+
+  ChecklistNotifier(String type)
+      : _type = type,
+        super(_initializeItems(type)) {
     // 저장된 체크 상태를 복원한다. 세션이 없으면 현재 상태를 저장한다.
     _restoreFromPrefs();
   }
@@ -49,6 +54,9 @@ class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
   /// 저장된 세션에서 checked 상태를 복원한다.
   /// label이 일치하는 항목만 복원하므로 새 항목은 기본 미체크 상태를 유지한다.
   Future<void> _restoreFromPrefs() async {
+    // 커스텀 기본 항목이 있으면 하드코딩 기본값에 병합
+    await _mergeCustomItems();
+
     final saved = await PrefsService.getChecklistSession();
     if (saved.isEmpty) {
       _syncToPrefs();
@@ -71,6 +79,25 @@ class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
       return item;
     }).toList();
     _syncToPrefs();
+  }
+
+  /// 설정에서 추가한 커스텀 항목을 현재 state에 병합한다.
+  /// 이미 같은 label이 있는 항목은 추가하지 않는다.
+  Future<void> _mergeCustomItems() async {
+    final customItems = await PrefsService.getCustomChecklistItems(_type);
+    if (customItems.isEmpty) return;
+    final existing = state.map((i) => i.label).toSet();
+    final toAdd = customItems.where((m) => !existing.contains(m['label'] as String)).toList();
+    if (toAdd.isEmpty) return;
+    state = [
+      ...state,
+      for (int i = 0; i < toAdd.length; i++)
+        ChecklistItem(
+          id: 'custom_${DateTime.now().microsecondsSinceEpoch}_$i',
+          label: toAdd[i]['label'] as String,
+          category: toAdd[i]['category'] as String? ?? '준비물',
+        ),
+    ];
   }
 
   /// 현재 체크리스트 상태를 SharedPreferences에 저장한다 (fire-and-forget).
@@ -123,38 +150,46 @@ class ChecklistNotifier extends StateNotifier<List<ChecklistItem>> {
   }
 
   Future<void> addAutoItems() async {
-    final weatherEnabled = await PrefsService.isWeatherEnabled();
-    final dustEnabled = await PrefsService.isDustEnabled();
-    if (!weatherEnabled && !dustEnabled) return;
+    final alreadyAdded = state.any((i) => i.category == '추천 준비물');
+    if (alreadyAdded) return;
 
-    final apiKey = await PrefsService.getWeatherApiKey();
-    if (apiKey.isEmpty) return;
-
-    final activePlace = await PrefsService.getActivePlace();
-    if (activePlace == null) return;
+    // prefs 병렬 로드
+    final prefResults = await Future.wait([
+      PrefsService.isWeatherEnabled(),
+      PrefsService.isDustEnabled(),
+      PrefsService.getWeatherApiKey(),
+      PrefsService.getActivePlace(),
+    ]);
+    final weatherEnabled = prefResults[0] as bool;
+    final dustEnabled    = prefResults[1] as bool;
+    final apiKey         = prefResults[2] as String;
+    final activePlace    = prefResults[3] as Place?;
 
     final List<String> items = [];
 
-    if (weatherEnabled) {
-      final weatherData = await WeatherService.fetchWeather(
-          activePlace.lat, activePlace.lon, apiKey);
-      if (WeatherService.shouldBringUmbrella(weatherData)) items.add('우산');
+    if ((weatherEnabled || dustEnabled) && apiKey.isNotEmpty && activePlace != null) {
+      // 날씨·미세먼지 API 병렬 호출
+      final apiResults = await Future.wait([
+        weatherEnabled
+            ? WeatherService.fetchWeather(activePlace.lat, activePlace.lon, apiKey)
+                .catchError((_) => null)
+            : Future<Map<String, dynamic>?>.value(null),
+        dustEnabled
+            ? WeatherService.fetchAirPollution(activePlace.lat, activePlace.lon, apiKey)
+                .catchError((_) => null)
+            : Future<Map<String, dynamic>?>.value(null),
+      ]);
+      final weatherData = apiResults[0] as Map<String, dynamic>?;
+      final airData     = apiResults[1] as Map<String, dynamic>?;
+
+      if (weatherEnabled && WeatherService.shouldBringUmbrella(weatherData)) items.add('우산');
+      if (dustEnabled    && WeatherService.shouldWearMask(airData))           items.add('마스크');
     }
 
-    if (dustEnabled) {
-      final airData = await WeatherService.fetchAirPollution(
-          activePlace.lat, activePlace.lon, apiKey);
-      if (WeatherService.shouldWearMask(airData)) items.add('마스크');
-    }
-
-    if (items.isEmpty) return;
-
-    // 모든 추천 준비물을 한 줄로 합산 ("우산 · 마스크")
-    final label = items.join(' · ');
-    final alreadyAdded = state.any((i) =>
-        i.label.contains('우산') || i.label.contains('마스크'));
-    if (!alreadyAdded) {
-      add(label, '추천 준비물');
+    if (items.isEmpty) {
+      add('😊 웃음', '추천 준비물');
+    } else {
+      add(items.join(' · '), '추천 준비물');
     }
   }
 }
@@ -170,54 +205,24 @@ class ChecklistScreen extends ConsumerStatefulWidget {
 class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
   final _addCtrl = TextEditingController();
   String _selectedCategory = '준비물';
-  String? _weatherStatus;
+  bool _isReady = false;
 
   @override
   void initState() {
     super.initState();
-    _loadExtraState();
+    _init();
   }
 
-  Future<void> _loadExtraState() async {
+  Future<void> _init() async {
+    // extra 허용 여부 + auto items 동시에 처리
     final isExtra = await DailyNotifGuard.isExtraAllowed();
+    if (!mounted) return;
     ref.read(_extraProvider.notifier).state = isExtra;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final notifier = ref.read(_itemsProvider(widget.outingType).notifier);
-      await notifier.addAutoItems();
-      _loadWeatherStatus();
-    });
-  }
+    final notifier = ref.read(_itemsProvider(widget.outingType).notifier);
+    await notifier.addAutoItems();
 
-  Future<void> _loadWeatherStatus() async {
-    final apiKey = await PrefsService.getWeatherApiKey();
-    if (apiKey.isEmpty) return;
-    final activePlace = await PrefsService.getActivePlace();
-    if (activePlace == null) return;
-    try {
-      final weather = await WeatherService.fetchWeather(
-          activePlace.lat, activePlace.lon, apiKey);
-      if (weather == null) return;
-      final iconCode = weather['weather'][0]['icon'] as String? ?? '';
-      final status = _iconToKorean(iconCode);
-      if (mounted) setState(() => _weatherStatus = status);
-    } catch (_) {}
-  }
-
-  static String _iconToKorean(String code) {
-    final c = code.endsWith('n') ? '${code.substring(0, code.length - 1)}d' : code;
-    switch (c) {
-      case '01d': return '맑음';
-      case '02d': return '구름 조금';
-      case '03d': return '구름 많음';
-      case '04d': return '흐림';
-      case '09d': return '소나기';
-      case '10d': return '비';
-      case '11d': return '뇌우';
-      case '13d': return '눈';
-      case '50d': return '안개';
-      default:    return '맑음';
-    }
+    if (mounted) setState(() => _isReady = true);
   }
 
   @override
@@ -228,6 +233,49 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_isReady) {
+      return Scaffold(
+        backgroundColor: NeomeDesignSystem.background,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => context.go('/home'),
+                    icon: const Icon(Icons.chevron_left, size: 18),
+                    label: const Text('뒤로'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: NeomeDesignSystem.textSub,
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ),
+              ),
+              const Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(
+                          strokeWidth: 2, color: NeomeDesignSystem.primary),
+                      SizedBox(height: 16),
+                      Text('준비물 확인 중...',
+                          style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8))),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     // 모든 항목이 체크되는 순간 완료 피드백 표시
     ref.listen<List<ChecklistItem>>(
       _itemsProvider(widget.outingType),
@@ -361,40 +409,8 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
                     ),
                   ),
 
-                  // ── 추천 준비물 / 날씨 안내 (최상단) ─────────────
-                  if (items.any((i) => i.category == '추천 준비물'))
-                    _buildCategorySection(items, '추천 준비물', notifier, highlight: true)
-                  else if (_weatherStatus != null)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: NeomeDesignSystem.primary.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: NeomeDesignSystem.primary.withOpacity(0.15),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.wb_sunny_outlined,
-                                  size: 15, color: NeomeDesignSystem.primary),
-                              const SizedBox(width: 8),
-                              Text(
-                                '오늘의 날씨는 $_weatherStatus',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: NeomeDesignSystem.primary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+                  // ── 추천 준비물 (최상단) ──────────────────────────
+                  _buildCategorySection(items, '추천 준비물', notifier, highlight: true),
 
                   // ── Supplies Section ──────────────────────────
                   _buildCategorySection(items, '준비물', notifier),

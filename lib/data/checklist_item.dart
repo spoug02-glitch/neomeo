@@ -20,6 +20,7 @@ Map<String, List<String>> defaultItemsFor(String outingType) {
   // UT MVP: 등교 전용 기본 항목
   const Map<String, List<String>> itemsMap = {
     '등교': ['보조배터리', '가방', '노트북'],
+    '외출': ['지갑', '폰', '열쇠'],
   };
 
   return {

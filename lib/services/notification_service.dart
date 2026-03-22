@@ -81,8 +81,7 @@ class NotificationService {
     );
   }
 
-  /// 지오펜스 이탈 감지 시 외출 유형 선택을 유도하는 알림.
-  /// 탭하면 /outing-select 화면으로 이동한다.
+  /// 지오펜스 이탈 감지 시 외출 체크리스트 알림.
   Future<void> showDeparturePrompt() async {
     const androidDetails = AndroidNotificationDetails(
       _channelId,
@@ -97,9 +96,30 @@ class NotificationService {
     await _plugin.show(
       0,
       '집을 나가는 것 같아요',
-      '등교 전에 확인하고 가세요',
+      '외출 전에 체크리스트를 확인해봐요',
       const NotificationDetails(android: androidDetails),
-      payload: 'neomeo://checklist?type=등교',
+      payload: 'neomeo://checklist?type=%EC%99%B8%EC%B6%9C', // 외출
+    );
+  }
+
+  /// 지오펜스 진입 감지 시 알림 (trigger='enter' 설정 시).
+  Future<void> showArrivalPrompt() async {
+    const androidDetails = AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDesc,
+      importance: Importance.high,
+      priority: Priority.high,
+      ticker: '너머',
+      visibility: NotificationVisibility.public,
+    );
+
+    await _plugin.show(
+      1,
+      '집에 도착한 것 같아요',
+      '오늘 외출은 어땠나요? 체크리스트를 확인해봐요.',
+      const NotificationDetails(android: androidDetails),
+      payload: 'neomeo://checklist?type=%EC%99%B8%EC%B6%9C', // 외출
     );
   }
 }

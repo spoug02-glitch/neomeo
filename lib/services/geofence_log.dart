@@ -27,6 +27,7 @@ class GeofenceLog {
   /// 최신순으로 반환
   static Future<List<String>> getAll() async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.reload(); // 백그라운드 아이솔레이트가 쓴 값을 반영
     return (prefs.getStringList(_kKey) ?? []).reversed.toList();
   }
 

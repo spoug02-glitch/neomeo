@@ -113,6 +113,17 @@ void _handleReturnHome() {
   _state = _DepState.atHome;
   debugPrint('[GeoTask-R] → atHome (was=$was)');
   GeofenceLog.add('[R] → atHome (was=$was)');
+  _checkAndSendArrivalNotif(); // fire-and-forget
+}
+
+Future<void> _checkAndSendArrivalNotif() async {
+  final place = await PrefsService.getActivePlace();
+  if (place == null) return;
+  final trigger = await PrefsService.getChecklistTrigger(place.id);
+  if (trigger == 'enter') {
+    await NotificationService().showArrivalPrompt();
+    await GeofenceLog.add('[R] → 귀가 알림 발송 (trigger=enter)');
+  }
 }
 
 // ── 포그라운드 서비스 진입점 (top-level 필수) ─────────────────────────────────
@@ -253,6 +264,15 @@ class GeofenceTaskHandler extends TaskHandler {
         await prefs.remove(_kPendingSinceMs);
         debugPrint('[GeoTask-D] → atHome (귀가 확인)');
         await GeofenceLog.add('[D] → atHome dist=${distStr}m');
+        // 귀가 알림 (enter trigger 설정 시)
+        final place = await PrefsService.getActivePlace();
+        if (place != null) {
+          final trigger = await PrefsService.getChecklistTrigger(place.id);
+          if (trigger == 'enter') {
+            await NotificationService().showArrivalPrompt();
+            await GeofenceLog.add('[D] → 귀가 알림 발송 (trigger=enter)');
+          }
+        }
       }
     }
     // 60~80m: hysteresis zone
