@@ -262,9 +262,9 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
                               ),
                             ),
                             const SizedBox(height: 10),
+                            // 일~토 토글 버튼
                             Row(
                               children: [
-                                // 일~토 토글 버튼
                                 for (int i = 0; i < 7; i++)
                                   Padding(
                                     padding: EdgeInsets.only(right: i < 6 ? 6 : 0),
@@ -274,37 +274,38 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
                                       onTap: () => _toggleDay(i),
                                     ),
                                   ),
-                                const SizedBox(width: 10),
-                                // 영업일 제외 체크박스
-                                GestureDetector(
-                                  onTap: () => _toggleWeekdayOnly(!_isWeekdayOnly),
-                                  child: Row(
-                                    children: [
-                                      SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: Checkbox(
-                                          value: _isWeekdayOnly,
-                                          onChanged: (v) =>
-                                              _toggleWeekdayOnly(v ?? false),
-                                          activeColor: NeomeDesignSystem.primary,
-                                          materialTapTargetSize:
-                                              MaterialTapTargetSize.shrinkWrap,
-                                          visualDensity: VisualDensity.compact,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      const Text(
-                                        '영업일 제외',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF64748B),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
                               ],
+                            ),
+                            const SizedBox(height: 10),
+                            // 영업일 제외 체크박스 (별도 줄)
+                            GestureDetector(
+                              onTap: () => _toggleWeekdayOnly(!_isWeekdayOnly),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: Checkbox(
+                                      value: _isWeekdayOnly,
+                                      onChanged: (v) =>
+                                          _toggleWeekdayOnly(v ?? false),
+                                      activeColor: NeomeDesignSystem.primary,
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    '영업일 제외',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -381,14 +382,13 @@ class _DayChip extends StatelessWidget {
         width: 32,
         height: 32,
         decoration: BoxDecoration(
-          color: selected
-              ? NeomeDesignSystem.primary
-              : const Color(0xFFF1F5F9),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: selected
                 ? NeomeDesignSystem.primary
-                : const Color(0xFFE2E8F0),
+                : const Color(0xFFCBD5E1),
+            width: selected ? 1.5 : 1.0,
           ),
         ),
         child: Center(
@@ -397,7 +397,9 @@ class _DayChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: selected ? Colors.white : const Color(0xFF94A3B8),
+              color: selected
+                  ? NeomeDesignSystem.primary
+                  : const Color(0xFFCBD5E1),
             ),
           ),
         ),
