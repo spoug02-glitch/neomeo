@@ -39,7 +39,7 @@
         android:maxSdkVersion="32" />
 
     <application
-        android:label="neomeo"
+        android:label="너머"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
