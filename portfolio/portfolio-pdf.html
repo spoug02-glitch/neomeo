@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>너머 — UX Portfolio</title>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      font-family: 'Pretendard', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      background: #1a1828;
+    }
+
+    @page { size: 1280px 720px; margin: 0; }
+
+    .slide {
+      width: 1280px; height: 720px;
+      overflow: hidden; position: relative;
+      page-break-after: always; break-after: page;
+    }
+    .slide:last-child { page-break-after: avoid; break-after: avoid; }
+
+    @media screen {
+      body { padding: 48px 0; display: flex; flex-direction: column; gap: 28px; align-items: center; }
+      .slide { box-shadow: 0 12px 56px rgba(0,0,0,.45); }
+    }
+    @media print {
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      body { padding: 0; background: white; }
+    }
+
+    /* ─── 텍스트 크기 시스템 ───────────────────
+       label  :  9px  (섹션 라벨)
+       badge  : 10px  (뱃지)
+       note   : 13px  (보조 설명, step sub)
+       sub    : 15px  (슬라이드 부제목)
+       body   : 18px  (카드 본문)
+       h2     : 40px  (슬라이드 타이틀)
+    ──────────────────────────────────────── */
+
+    .dark-slide {
+      background-color: #08051D;
+      background-image:
+        radial-gradient(ellipse 1100px 700px at 8% 88%, rgba(88,69,245,.22) 0%, transparent 55%),
+        radial-gradient(ellipse 700px 500px at 88% 12%, rgba(108,82,245,.13) 0%, transparent 52%);
+    }
+    .dot-grid {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image: radial-gradient(circle, rgba(255,255,255,.038) 1px, transparent 1px);
+      background-size: 26px 26px;
+    }
+    .lbl { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .lbl-line { width: 20px; height: 2px; border-radius: 1px; flex-shrink: 0; }
+    .lbl-text { font-size: 9px; font-weight: 700; letter-spacing: 0.36em; text-transform: uppercase; }
+
+    .slide-num {
+      position: absolute; bottom: 26px; right: 40px; z-index: 20;
+      display: flex; align-items: baseline; gap: 3px;
+    }
+
+    .phone {
+      border-radius: 32px; border: 5px solid #1a1a1a;
+      box-shadow: 0 0 0 1px #2d2d2d, 0 8px 24px rgba(0,0,0,.6), 0 32px 80px rgba(0,0,0,.8);
+      overflow: hidden; background: #0d0d0d; flex-shrink: 0;
+    }
+    .phone img { width: 100%; display: block; }
+
+    /* 아이콘 박스 */
+    .icon-sm {
+      width: 32px; height: 32px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0;
+    }
+    .icon-md {
+      width: 38px; height: 38px; border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex-shrink: 0;
+    }
+
+    /* 그라디언트 보더 카드 */
+    .grd-border { padding: 1.5px; border-radius: 20px; background: linear-gradient(140deg, #5845F5, #8B7AF8 50%, #5845F5); }
+    .grd-inner  { border-radius: 19px; padding: 24px 26px; background: linear-gradient(140deg, #EEE9FF, #F8F6FF 50%, #EDE7FF); height: 100%; }
+
+    /* CSS 화살표 */
+    .arrow { display: flex; align-items: center; gap: 0; flex-shrink: 0; }
+    .arrow-line { width: 18px; height: 1px; }
+    .arrow-head { width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════ 01 HERO ═══════════ -->
+<div class="slide dark-slide">
+  <div class="dot-grid"></div>
+  <div style="position:absolute;right:-12px;bottom:-20px;font-size:320px;font-weight:900;color:rgba(255,255,255,.02);line-height:1;letter-spacing:-14px;pointer-events:none;user-select:none;">너머</div>
+
+  <div class="slide-num">
+    <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);">01</span>
+    <span style="font-size:10px;color:rgba(255,255,255,.15);">/07</span>
+  </div>
+
+  <div style="display:flex;height:100%;position:relative;z-index:1;">
+
+    <!-- 왼쪽 -->
+    <div style="width:50%;padding:64px 56px;display:flex;flex-direction:column;justify-content:center;">
+      <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(88,69,245,.18);border:1px solid rgba(88,69,245,.35);border-radius:999px;padding:5px 16px;width:fit-content;margin-bottom:36px;">
+        <span style="width:5px;height:5px;border-radius:50%;background:#5845F5;"></span>
+        <span style="font-size:9px;font-weight:700;letter-spacing:0.3em;text-transform:uppercase;color:#A899FF;">UX Portfolio</span>
+        <span style="width:1px;height:10px;background:rgba(255,255,255,.15);"></span>
+        <span style="font-size:9px;font-weight:600;letter-spacing:0.15em;color:#7C6CF8;">행동 개입 시스템</span>
+      </div>
+
+      <h1 style="font-size:118px;line-height:.95;font-weight:900;color:white;letter-spacing:-6px;margin-bottom:24px;">너머</h1>
+
+      <p style="color:#C4B9FF;font-size:20px;font-weight:300;line-height:1.5;letter-spacing:-.2px;margin-bottom:6px;">행동 개입 기반 외출 보조 시스템</p>
+      <p style="color:#3D2FB0;font-size:14px;letter-spacing:.1em;font-weight:500;">기억이 아니라 상황이 행동을 만든다</p>
+
+      <div style="margin-top:40px;padding-top:28px;border-top:1px solid rgba(255,255,255,.07);display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="icon-sm" style="background:rgba(88,69,245,.2);border:1px solid rgba(88,69,245,.3);">📍</div>
+          <span style="color:#8B7AF8;font-size:16px;font-weight:500;">지오펜스 기반 자동 감지</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="icon-sm" style="background:rgba(88,69,245,.2);border:1px solid rgba(88,69,245,.3);">🔒</div>
+          <span style="color:#8B7AF8;font-size:16px;font-weight:500;">출발 전 행동 게이트</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="icon-sm" style="background:rgba(88,69,245,.2);border:1px solid rgba(88,69,245,.3);">☁️</div>
+          <span style="color:#8B7AF8;font-size:16px;font-weight:500;">날씨·장소 컨텍스트 반영</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 오른쪽 폰 -->
+    <div style="width:50%;display:flex;align-items:flex-end;justify-content:center;gap:16px;overflow:hidden;position:relative;">
+      <div style="position:absolute;bottom:-60px;left:50%;transform:translateX(-50%);width:500px;height:400px;background:radial-gradient(ellipse,rgba(88,69,245,.35) 0%,transparent 65%);pointer-events:none;"></div>
+      <div style="position:absolute;bottom:80px;left:50%;transform:translateX(-50%);width:280px;height:200px;background:radial-gradient(ellipse,rgba(138,118,248,.25) 0%,transparent 65%);pointer-events:none;"></div>
+      <div style="transform:translateY(28px) rotate(-6deg);transform-origin:bottom center;position:relative;z-index:1;">
+        <div class="phone" style="width:150px;"><img src="public/onboard2.jpg" alt="" /></div>
+      </div>
+      <div style="position:relative;z-index:3;">
+        <div class="phone" style="width:182px;"><img src="public/onboard1.jpg" alt="" /></div>
+      </div>
+      <div style="transform:translateY(28px) rotate(6deg);transform-origin:bottom center;position:relative;z-index:1;">
+        <div class="phone" style="width:150px;"><img src="public/onboard3.jpg" alt="" /></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ═══════════ 02 PROBLEM ═══════════ -->
+<div class="slide" style="background:radial-gradient(ellipse 700px 500px at 95% 5%,rgba(88,69,245,.055) 0%,transparent 55%),#FAFAFA;padding:48px 64px;display:flex;flex-direction:column;gap:16px;">
+
+  <div class="slide-num">
+    <span style="font-size:12px;font-weight:700;color:rgba(0,0,0,.35);">02</span>
+    <span style="font-size:10px;color:rgba(0,0,0,.15);">/07</span>
+  </div>
+
+  <div>
+    <div class="lbl"><div class="lbl-line" style="background:#5845F5;"></div><span class="lbl-text" style="color:#5845F5;">Problem Definition</span></div>
+    <h2 style="font-size:40px;font-weight:900;line-height:1.08;letter-spacing:-2px;color:#0A0714;">UXUI 학원에서 발견한 페인포인트</h2>
+    <p style="font-size:15px;font-weight:300;color:#8C89A8;margin-top:6px;line-height:1.5;">국민내일배움카드를 찍어야 하는데 — 수강생 20명이 매번 놓쳤다</p>
+  </div>
+
+  <!-- 동기 스토리 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;background:white;border-radius:18px;border:1.5px solid #E9E7F8;padding:22px 24px;flex-shrink:0;">
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:#DBEAFE;display:flex;align-items:center;justify-content:center;font-size:18px;">🏫</div>
+      <p style="font-weight:700;font-size:14px;color:#111827;">등교·하교 시 카드 태깅 필수</p>
+      <p style="font-size:14px;color:#6B7280;line-height:1.5;">UXUI 포트폴리오 학원은 등교·하교 시 국민내일배움카드를 단말기에 찍어야 한다</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:#FEE2E2;display:flex;align-items:center;justify-content:center;font-size:18px;">😩</div>
+      <p style="font-weight:700;font-size:14px;color:#111827;">수강생 20명이 반복적으로 누락</p>
+      <p style="font-size:14px;color:#6B7280;line-height:1.5;">매번 잊고 지나쳐 단체 공지방에 "카드 안 찍으신 분 확인해주세요" 공지가 빈번했다</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:#EDE9FE;display:flex;align-items:center;justify-content:center;font-size:18px;">💡</div>
+      <p style="font-weight:700;font-size:14px;color:#111827;">페인포인트 → 아이디어</p>
+      <p style="font-size:14px;color:#6B7280;line-height:1.5;">학원 입장·퇴장 시 <strong style="color:#5845F5;">위치 기반으로 체크리스트가 자동으로 뜬다면?</strong></p>
+    </div>
+  </div>
+
+  <!-- 3열 카드 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;flex:1;">
+
+    <div style="border-radius:18px;padding:22px 24px;background:white;border:1.5px solid rgba(220,38,38,.18);box-shadow:0 1px 3px rgba(0,0,0,.04),0 6px 20px rgba(220,38,38,.06);display:flex;flex-direction:column;">
+      <div style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:5px 12px;border-radius:999px;background:#FEF2F2;color:#DC2626;width:fit-content;margin-bottom:18px;border:1px solid rgba(220,38,38,.15);">😫 발견한 문제</div>
+      <div style="display:flex;flex-direction:column;gap:12px;flex:1;justify-content:center;">
+        <div style="display:flex;gap:10px;align-items:flex-start;"><div class="icon-sm" style="background:#FEE2E2;color:#EF4444;font-size:11px;font-weight:700;margin-top:1px;">—</div><span style="color:#374151;font-size:18px;line-height:1.45;">등교·하교 시 카드 태깅 누락</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;"><div class="icon-sm" style="background:#FEE2E2;color:#EF4444;font-size:11px;font-weight:700;margin-top:1px;">—</div><span style="color:#374151;font-size:18px;line-height:1.45;">20명 수강생의 반복 실수</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;"><div class="icon-sm" style="background:#FEE2E2;color:#EF4444;font-size:11px;font-weight:700;margin-top:1px;">—</div><span style="color:#374151;font-size:18px;line-height:1.45;">단체 공지방 공지 빈번히 올라옴</span></div>
+      </div>
+    </div>
+
+    <div style="border-radius:18px;padding:22px 24px;background:white;border:1.5px solid rgba(234,88,12,.18);box-shadow:0 1px 3px rgba(0,0,0,.04),0 6px 20px rgba(234,88,12,.06);display:flex;flex-direction:column;">
+      <div style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:5px 12px;border-radius:999px;background:#FFF7ED;color:#EA580C;width:fit-content;margin-bottom:18px;border:1px solid rgba(234,88,12,.15);">⚡ 기존 방식의 한계</div>
+      <div style="display:flex;flex-direction:column;gap:12px;flex:1;justify-content:center;">
+        <div style="display:flex;gap:10px;align-items:flex-start;"><div class="icon-sm" style="background:#FFEDD5;color:#EA580C;font-size:11px;font-weight:700;margin-top:1px;">—</div><span style="color:#374151;font-size:18px;line-height:1.45;">구두 공지는 그 순간만 기억됨</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;"><div class="icon-sm" style="background:#FFEDD5;color:#EA580C;font-size:11px;font-weight:700;margin-top:1px;">—</div><span style="color:#374151;font-size:18px;line-height:1.45;">개인 메모·알람은 설정 자체를 잊음</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;"><div class="icon-sm" style="background:#FFEDD5;color:#EA580C;font-size:11px;font-weight:700;margin-top:1px;">—</div><span style="color:#374151;font-size:18px;line-height:1.45;">자율에 맡기면 무시율 높음</span></div>
+      </div>
+    </div>
+
+    <div style="border-radius:18px;padding:22px 24px;background:white;border:1.5px solid rgba(0,0,0,.07);box-shadow:0 1px 3px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.05);display:flex;flex-direction:column;">
+      <div style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:5px 12px;border-radius:999px;background:#F3F4F6;color:#6B7280;width:fit-content;margin-bottom:18px;border:1px solid rgba(0,0,0,.08);">🗺️ 확장 가능성</div>
+      <div style="display:flex;flex-direction:column;gap:12px;flex:1;justify-content:center;">
+        <div style="display:flex;gap:10px;align-items:flex-start;"><div class="icon-sm" style="background:#F3F4F6;color:#9CA3AF;font-size:11px;font-weight:700;margin-top:1px;">—</div><span style="color:#374151;font-size:18px;line-height:1.45;">장소마다 다른 체크리스트 필요</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;"><div class="icon-sm" style="background:#F3F4F6;color:#9CA3AF;font-size:11px;font-weight:700;margin-top:1px;">—</div><span style="color:#374151;font-size:18px;line-height:1.45;">외출 준비물도 같은 구조로 해결</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;"><div class="icon-sm" style="background:#F3F4F6;color:#9CA3AF;font-size:11px;font-weight:700;margin-top:1px;">—</div><span style="color:#374151;font-size:18px;line-height:1.45;">위치 기반 자동화로 누락 제로</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 배너 -->
+  <div style="flex-shrink:0;display:flex;align-items:center;gap:20px;background:#08051D;border:1px solid rgba(88,69,245,.2);border-radius:16px;padding:18px 28px;">
+    <div class="icon-md" style="background:rgba(88,69,245,.15);border:1px solid rgba(88,69,245,.25);">📍</div>
+    <div>
+      <p style="color:white;font-weight:800;font-size:18px;line-height:1.4;letter-spacing:-.3px;">상황이 바뀌는 그 순간 — 체크리스트가 자동으로 나타난다면</p>
+      <p style="color:#6B6B8A;font-size:13px;margin-top:4px;font-weight:300;">기억력의 문제가 아니라 — 시스템 설계의 문제</p>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ═══════════ 03 INSIGHT ═══════════ -->
+<div class="slide" style="background:radial-gradient(ellipse 800px 600px at 100% 100%,rgba(88,69,245,.08) 0%,transparent 55%),radial-gradient(ellipse 600px 400px at 0% 0%,rgba(88,69,245,.04) 0%,transparent 50%),#F3F1FB;padding:48px 64px;display:flex;flex-direction:column;gap:16px;">
+
+  <div class="slide-num">
+    <span style="font-size:12px;font-weight:700;color:rgba(0,0,0,.35);">03</span>
+    <span style="font-size:10px;color:rgba(0,0,0,.15);">/07</span>
+  </div>
+
+  <div>
+    <div class="lbl"><div class="lbl-line" style="background:#5845F5;"></div><span class="lbl-text" style="color:#5845F5;">Insight & Strategy</span></div>
+    <h2 style="font-size:40px;font-weight:900;line-height:1.08;letter-spacing:-2px;color:#0A0714;">기억이 아니라 상황이 행동을 만든다</h2>
+    <p style="font-size:15px;font-weight:300;color:#8C89A8;margin-top:6px;">인간의 기억력에 호소하는 대신, 상황이 행동을 강제하도록 설계한다</p>
+  </div>
+
+  <!-- 흐름 -->
+  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:12px;background:white;border:1px solid #E5E3F0;box-shadow:0 1px 4px rgba(0,0,0,.06);">
+      <span style="font-size:18px;">🧠</span>
+      <span style="color:#B0ADCA;font-size:16px;font-weight:500;text-decoration:line-through;text-decoration-color:#FCA5A5;">기억 의존</span>
+      <span style="font-size:9px;padding:2px 8px;border-radius:999px;background:#F3F4F6;color:#B0ADCA;font-weight:600;">실패</span>
+    </div>
+    <div class="arrow"><div class="arrow-line" style="background:linear-gradient(90deg,#D0CBEF,#5845F5);"></div><div class="arrow-head" style="border-left:5px solid #5845F5;"></div></div>
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:12px;background:#4535D4;box-shadow:0 4px 20px rgba(69,53,212,.4);">
+      <span style="font-size:18px;">📍</span>
+      <span style="color:white;font-size:16px;font-weight:600;">상황(Context) 개입</span>
+      <span style="font-size:9px;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.15);color:rgba(255,255,255,.85);font-weight:600;">작동</span>
+    </div>
+    <div class="arrow"><div class="arrow-line" style="background:#5845F5;"></div><div class="arrow-head" style="border-left:5px solid #5845F5;"></div></div>
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:12px;background:#4535D4;box-shadow:0 4px 20px rgba(69,53,212,.4);">
+      <span style="font-size:18px;">🔒</span>
+      <span style="color:white;font-size:16px;font-weight:600;">행동 강제</span>
+      <span style="font-size:9px;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.15);color:rgba(255,255,255,.85);font-weight:600;">성공</span>
+    </div>
+  </div>
+
+  <!-- 2열 카드 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:1;">
+
+    <div style="border-radius:18px;padding:24px 26px;background:white;border:1px solid rgba(0,0,0,.06);box-shadow:0 1px 3px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.05);display:flex;flex-direction:column;gap:16px;">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#5845F5;display:flex;align-items:center;gap:8px;"><div style="width:16px;height:1.5px;background:#5845F5;border-radius:1px;"></div>핵심 인사이트</div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <div class="icon-md" style="background:#EEE9FF;border:1px solid #DDD6FE;">💡</div>
+          <p style="color:#374151;font-size:18px;line-height:1.45;font-weight:500;padding-top:6px;">장소 진입·이탈 시점이 가장 효과적인 개입 타이밍</p>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <div class="icon-md" style="background:#EEE9FF;border:1px solid #DDD6FE;">🚧</div>
+          <p style="color:#374151;font-size:18px;line-height:1.45;font-weight:500;padding-top:6px;">행동 게이트(강제 중단)를 두면 실수 급감</p>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <div class="icon-md" style="background:#EEE9FF;border:1px solid #DDD6FE;">📈</div>
+          <p style="color:#374151;font-size:18px;line-height:1.45;font-weight:500;padding-top:6px;">카드 태깅처럼 '장소에서만 필요한 행동'은 위치가 트리거가 되어야 한다</p>
+        </div>
+      </div>
+    </div>
+
+    <div style="border-radius:18px;padding:24px 26px;background:linear-gradient(155deg,#08051D 0%,#0D0835 100%);border:1px solid rgba(88,69,245,.2);box-shadow:0 4px 24px rgba(8,5,29,.15);display:flex;flex-direction:column;gap:16px;">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#A899FF;display:flex;align-items:center;gap:8px;"><div style="width:16px;height:1.5px;background:#5845F5;border-radius:1px;"></div>해결 방향</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);">
+          <span style="font-size:20px;flex-shrink:0;">📍</span>
+          <p style="color:#C4B9FF;font-size:17px;line-height:1.4;">지오펜스로 외출 감지 → 정확한 타이밍</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);">
+          <span style="font-size:20px;flex-shrink:0;">🔒</span>
+          <p style="color:#C4B9FF;font-size:17px;line-height:1.4;">체크 완료 전 출발 차단 → 강제 준수</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);">
+          <span style="font-size:20px;flex-shrink:0;">☁️</span>
+          <p style="color:#C4B9FF;font-size:17px;line-height:1.4;">날씨·장소 기반 준비물 추천 → 상황 반영</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);">
+          <span style="font-size:20px;flex-shrink:0;">⏰</span>
+          <p style="color:#C4B9FF;font-size:17px;line-height:1.4;">알림 시점 커스터마이즈 → 경보 피로 최소화</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 배너 -->
+  <div style="flex-shrink:0;background:linear-gradient(135deg,#4535D4,#5845F5 50%,#4535D4);border-radius:14px;padding:16px 32px;text-align:center;box-shadow:0 8px 32px rgba(69,53,212,.4);">
+    <p style="color:white;font-weight:800;font-size:17px;line-height:1.4;letter-spacing:-.3px;">외출 실수를 구조적으로 차단하는 컨텍스트 체크리스트</p>
+    <p style="color:rgba(255,255,255,.5);font-size:12px;margin-top:4px;font-weight:300;">"기억이 아니라 상황이 행동을 만든다" — 의지력이 아닌 설계로 해결</p>
+  </div>
+
+</div>
+
+
+<!-- ═══════════ 04 SYSTEM ═══════════ -->
+<div class="slide" style="background:radial-gradient(ellipse 600px 500px at 95% 95%,rgba(88,69,245,.04) 0%,transparent 55%),#FAFAFA;display:flex;">
+
+  <div class="slide-num">
+    <span style="font-size:12px;font-weight:700;color:rgba(0,0,0,.35);">04</span>
+    <span style="font-size:10px;color:rgba(0,0,0,.15);">/07</span>
+  </div>
+
+  <!-- 왼쪽 패널 -->
+  <div style="width:36%;padding:52px 36px 52px 64px;display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid rgba(0,0,0,.06);">
+    <div>
+      <div class="lbl"><div class="lbl-line" style="background:#5845F5;"></div><span class="lbl-text" style="color:#5845F5;">Structure & System</span></div>
+      <h2 style="font-size:40px;font-weight:900;line-height:1.08;letter-spacing:-2px;color:#0A0714;">상황이<br/>자동으로<br/>개입한다</h2>
+      <p style="font-size:14px;font-weight:300;color:#9490A8;margin-top:10px;line-height:1.6;">지오펜스·날씨·장소 컨텍스트<br/>→ 체크리스트 트리거 → 게이트 통과</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="background:#08051D;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;border:1px solid rgba(88,69,245,.12);">
+        <span style="font-size:22px;flex-shrink:0;">⚡</span>
+        <div><p style="color:#4B4B68;font-size:12px;text-decoration:line-through;text-decoration-color:#5845F5;margin-bottom:2px;">수동 체크리스트</p><p style="color:#A899FF;font-size:15px;font-weight:700;">자동 트리거 + 게이트</p></div>
+      </div>
+      <div style="background:#08051D;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;border:1px solid rgba(88,69,245,.12);">
+        <span style="font-size:22px;flex-shrink:0;">🎯</span>
+        <div><p style="color:#4B4B68;font-size:12px;text-decoration:line-through;text-decoration-color:#5845F5;margin-bottom:2px;">오탐·누락 발생</p><p style="color:#A899FF;font-size:15px;font-weight:700;">컨텍스트 인식으로 감소</p></div>
+      </div>
+      <div style="background:#08051D;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;border:1px solid rgba(88,69,245,.12);">
+        <span style="font-size:22px;flex-shrink:0;">🔒</span>
+        <div><p style="color:#4B4B68;font-size:12px;text-decoration:line-through;text-decoration-color:#5845F5;margin-bottom:2px;">기억 보조</p><p style="color:#A899FF;font-size:15px;font-weight:700;">행동 제어</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 오른쪽 패널 -->
+  <div style="flex:1;padding:52px 52px 52px 36px;display:flex;flex-direction:column;gap:14px;">
+
+    <!-- 3단계 -->
+    <div style="display:flex;align-items:stretch;gap:0;flex-shrink:0;">
+      <div style="flex:1;border-radius:14px;border:1.5px solid #BFDBFE;background:linear-gradient(135deg,#EFF6FF,#F5F9FF);padding:16px 18px;box-shadow:0 2px 10px rgba(59,130,246,.08);">
+        <div style="font-size:9px;font-weight:700;color:#3B82F6;border:1px solid rgba(59,130,246,.2);border-radius:999px;display:inline-block;padding:2px 10px;background:rgba(59,130,246,.06);margin-bottom:10px;">STEP 01</div>
+        <div style="font-size:26px;margin-bottom:6px;">📍</div>
+        <p style="font-weight:700;color:#1F2937;font-size:16px;margin-bottom:3px;">지오펜스 감지</p>
+        <p style="color:#9CA3AF;font-size:13px;">현관 통과 자동 인식</p>
+      </div>
+      <div style="display:flex;align-items:center;padding:0 5px;flex-shrink:0;">
+        <div class="arrow"><div class="arrow-line" style="background:linear-gradient(90deg,#BFDBFE,#8B7AF8);"></div><div class="arrow-head" style="border-left:5px solid #8B7AF8;"></div></div>
+      </div>
+      <div style="flex:1;border-radius:14px;border:1.5px solid #DDD6FE;background:linear-gradient(135deg,#F5F3FF,#FAF8FF);padding:16px 18px;box-shadow:0 2px 10px rgba(124,58,237,.08);">
+        <div style="font-size:9px;font-weight:700;color:#7C3AED;border:1px solid rgba(124,58,237,.2);border-radius:999px;display:inline-block;padding:2px 10px;background:rgba(124,58,237,.06);margin-bottom:10px;">STEP 02</div>
+        <div style="font-size:26px;margin-bottom:6px;">🌦️</div>
+        <p style="font-weight:700;color:#1F2937;font-size:16px;margin-bottom:3px;">맥락 분석</p>
+        <p style="color:#9CA3AF;font-size:13px;">날씨·목적지 반영</p>
+      </div>
+      <div style="display:flex;align-items:center;padding:0 5px;flex-shrink:0;">
+        <div class="arrow"><div class="arrow-line" style="background:linear-gradient(90deg,#DDD6FE,#5845F5);"></div><div class="arrow-head" style="border-left:5px solid #5845F5;"></div></div>
+      </div>
+      <div style="flex:1;border-radius:14px;border:1.5px solid #C4B9FF;background:linear-gradient(135deg,#EEE9FF,#F5F2FF);padding:16px 18px;box-shadow:0 2px 10px rgba(88,69,245,.1);">
+        <div style="font-size:9px;font-weight:700;color:#5845F5;border:1px solid rgba(88,69,245,.2);border-radius:999px;display:inline-block;padding:2px 10px;background:rgba(88,69,245,.06);margin-bottom:10px;">STEP 03</div>
+        <div style="font-size:26px;margin-bottom:6px;">🔒</div>
+        <p style="font-weight:700;color:#1F2937;font-size:16px;margin-bottom:3px;">출발 게이트</p>
+        <p style="color:#9CA3AF;font-size:13px;">미확인 시 출발 차단</p>
+      </div>
+    </div>
+
+    <!-- 4기능 2×2 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1;">
+      <div style="background:white;border-radius:13px;border:1px solid rgba(0,0,0,.06);padding:16px 18px;display:flex;gap:13px;box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 12px rgba(0,0,0,.04);">
+        <div class="icon-md" style="background:#EFF6FF;border:1px solid #BFDBFE;margin-top:1px;">📍</div>
+        <div>
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px;">
+            <p style="font-weight:700;color:#1F2937;font-size:16px;">지오펜스 기반 외출 감지</p>
+            <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:999px;background:#DBEAFE;color:#2563EB;flex-shrink:0;">트리거</span>
+          </div>
+          <p style="color:#9CA3AF;font-size:13px;">타이밍 자동화, 알림 낭비 감소</p>
+        </div>
+      </div>
+      <div style="background:white;border-radius:13px;border:1px solid rgba(0,0,0,.06);padding:16px 18px;display:flex;gap:13px;box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 12px rgba(0,0,0,.04);">
+        <div class="icon-md" style="background:#F5F3FF;border:1px solid #DDD6FE;margin-top:1px;">☁️</div>
+        <div>
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px;">
+            <p style="font-weight:700;color:#1F2937;font-size:16px;">날씨 기반 준비물 자동 추천</p>
+            <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:999px;background:#EDE9FE;color:#7C3AED;flex-shrink:0;">컨텍스트</span>
+          </div>
+          <p style="color:#9CA3AF;font-size:13px;">비·추위 등 변수 자동 반영</p>
+        </div>
+      </div>
+      <div style="background:white;border-radius:13px;border:1px solid rgba(0,0,0,.06);padding:16px 18px;display:flex;gap:13px;box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 12px rgba(0,0,0,.04);">
+        <div class="icon-md" style="background:#F0FDF4;border:1px solid #BBF7D0;margin-top:1px;">🔒</div>
+        <div>
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px;">
+            <p style="font-weight:700;color:#1F2937;font-size:16px;">체크 완료 시에만 출발 가능</p>
+            <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:999px;background:#DCFCE7;color:#16A34A;flex-shrink:0;">게이트</span>
+          </div>
+          <p style="color:#9CA3AF;font-size:13px;">미루기·무시를 구조적으로 차단</p>
+        </div>
+      </div>
+      <div style="background:white;border-radius:13px;border:1px solid rgba(0,0,0,.06);padding:16px 18px;display:flex;gap:13px;box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 12px rgba(0,0,0,.04);">
+        <div class="icon-md" style="background:#FFF7ED;border:1px solid #FED7AA;margin-top:1px;">🗺️</div>
+        <div>
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px;">
+            <p style="font-weight:700;color:#1F2937;font-size:16px;">장소별 체크리스트</p>
+            <span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:999px;background:#FFEDD5;color:#C2410C;flex-shrink:0;">맞춤화</span>
+          </div>
+          <p style="color:#9CA3AF;font-size:13px;">맥락별 항목 자동 로딩, 누락 감소</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ═══════════ 05 USAGE FLOW ═══════════ -->
+<div class="slide dark-slide">
+  <div class="dot-grid"></div>
+  <div style="position:absolute;right:-8px;bottom:-30px;font-size:300px;font-weight:900;color:rgba(255,255,255,.018);line-height:1;letter-spacing:-12px;pointer-events:none;user-select:none;">05</div>
+
+  <div class="slide-num">
+    <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);">05</span>
+    <span style="font-size:10px;color:rgba(255,255,255,.15);">/07</span>
+  </div>
+
+  <div style="display:flex;height:100%;position:relative;z-index:1;">
+
+    <!-- 왼쪽 -->
+    <div style="width:33%;padding:56px 36px 56px 64px;display:flex;flex-direction:column;justify-content:space-between;border-right:1px solid rgba(255,255,255,.05);">
+      <div>
+        <div class="lbl"><div class="lbl-line" style="background:#5845F5;"></div><span class="lbl-text" style="color:#7C6CF8;">Usage Flow</span></div>
+        <h2 style="font-size:38px;font-weight:900;line-height:1.08;letter-spacing:-2px;color:white;">사용자는<br/>아무것도<br/>시작하지 않는다</h2>
+        <p style="font-size:14px;font-weight:300;color:#4535D4;margin-top:12px;line-height:1.6;">시스템이 상황을 읽고,<br/>먼저 개입한다</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:11px;padding:12px 16px;display:flex;align-items:flex-start;gap:10px;">
+          <span style="font-size:10px;color:#5845F5;margin-top:3px;flex-shrink:0;">●</span>
+          <p style="font-size:14px;color:#A899FF;font-weight:500;line-height:1.5;">현관문을 나서는 순간 지오펜스가 자동 감지</p>
+        </div>
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:11px;padding:12px 16px;display:flex;align-items:flex-start;gap:10px;">
+          <span style="font-size:10px;color:#5845F5;margin-top:3px;flex-shrink:0;">●</span>
+          <p style="font-size:14px;color:#A899FF;font-weight:500;line-height:1.5;">날씨·목적지 기반으로 맞춤 체크리스트 생성</p>
+        </div>
+        <div style="background:rgba(74,222,128,.04);border:1px solid rgba(74,222,128,.15);border-radius:11px;padding:12px 16px;display:flex;align-items:flex-start;gap:10px;">
+          <span style="font-size:10px;color:#4ADE80;margin-top:3px;flex-shrink:0;">●</span>
+          <p style="font-size:14px;color:#4ADE80;font-weight:500;line-height:1.5;">모든 항목 확인 전 출발 버튼 비활성화</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 오른쪽 -->
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:44px 56px 36px;gap:16px;position:relative;">
+      <div style="position:absolute;inset:0;background:radial-gradient(ellipse 700px 500px at 50% 55%,rgba(88,69,245,.2) 0%,transparent 60%);pointer-events:none;"></div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;position:relative;z-index:1;">
+        <div><div style="font-size:8px;font-family:monospace;color:#3D2FB0;letter-spacing:.22em;text-transform:uppercase;margin-bottom:6px;">TRIGGER</div><div style="color:white;font-weight:700;font-size:16px;">🚪 외출</div></div>
+        <div><div style="font-size:8px;font-family:monospace;color:#3D2FB0;letter-spacing:.22em;text-transform:uppercase;margin-bottom:6px;">CONTEXT</div><div style="color:white;font-weight:700;font-size:16px;">🔔 자동 개입</div></div>
+        <div><div style="font-size:8px;font-family:monospace;color:#3D2FB0;letter-spacing:.22em;text-transform:uppercase;margin-bottom:6px;">GATE</div><div style="color:white;font-weight:700;font-size:16px;">✅ 출발 게이트</div></div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:center;gap:14px;flex:1;position:relative;z-index:1;">
+        <div class="phone" style="width:182px;"><img src="public/flow1.jpg" alt="" /></div>
+        <div class="arrow"><div class="arrow-line" style="background:linear-gradient(90deg,rgba(88,69,245,.4),rgba(88,69,245,.8));width:18px;"></div><div class="arrow-head" style="border-left:5px solid rgba(88,69,245,.8);"></div></div>
+        <div class="phone" style="width:182px;"><img src="public/flow2.jpg" alt="" /></div>
+        <div class="arrow"><div class="arrow-line" style="background:linear-gradient(90deg,rgba(88,69,245,.4),rgba(88,69,245,.8));width:18px;"></div><div class="arrow-head" style="border-left:5px solid rgba(88,69,245,.8);"></div></div>
+        <div class="phone" style="width:182px;"><img src="public/flow3.jpg" alt="" /></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ═══════════ 06 DIFFERENTIATION ═══════════ -->
+<div class="slide" style="background:radial-gradient(ellipse 700px 500px at 5% 100%,rgba(88,69,245,.04) 0%,transparent 55%),#FAFAFA;padding:44px 64px;display:flex;flex-direction:column;gap:14px;">
+
+  <div class="slide-num">
+    <span style="font-size:12px;font-weight:700;color:rgba(0,0,0,.35);">06</span>
+    <span style="font-size:10px;color:rgba(0,0,0,.15);">/07</span>
+  </div>
+
+  <div>
+    <div class="lbl"><div class="lbl-line" style="background:#5845F5;"></div><span class="lbl-text" style="color:#5845F5;">Differentiation</span></div>
+    <h2 style="font-size:40px;font-weight:900;line-height:1.08;letter-spacing:-2px;color:#0A0714;">수동 체크리스트 vs 자동 개입 시스템</h2>
+    <p style="font-size:15px;font-weight:300;color:#9490A8;margin-top:6px;">의지력에 의존하는 설계 vs 상황이 행동을 강제하는 설계</p>
+  </div>
+
+  <!-- 2열 비교 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1;">
+
+    <div style="border-radius:20px;padding:22px 26px;background:white;border:1px solid rgba(0,0,0,.07);box-shadow:0 1px 3px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.05);">
+      <div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#B0ADCA;margin-bottom:14px;display:flex;align-items:center;gap:8px;"><div style="width:14px;height:1.5px;background:#D1D0E0;border-radius:1px;"></div>기존 체크리스트</div>
+      <div style="display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #F5F4FA;">
+          <div style="width:20px;height:20px;border-radius:6px;background:#FEF2F2;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="color:#F87171;font-size:11px;font-weight:700;">✕</span></div>
+          <span style="color:#9CA3AF;font-size:17px;">앱을 직접 열어야 동작</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #F5F4FA;">
+          <div style="width:20px;height:20px;border-radius:6px;background:#FEF2F2;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="color:#F87171;font-size:11px;font-weight:700;">✕</span></div>
+          <span style="color:#9CA3AF;font-size:17px;">고정 시간 알림 — 맥락 무관</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #F5F4FA;">
+          <div style="width:20px;height:20px;border-radius:6px;background:#FEF2F2;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="color:#F87171;font-size:11px;font-weight:700;">✕</span></div>
+          <span style="color:#9CA3AF;font-size:17px;">확인을 강제하는 수단 없음</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #F5F4FA;">
+          <div style="width:20px;height:20px;border-radius:6px;background:#FEF2F2;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="color:#F87171;font-size:11px;font-weight:700;">✕</span></div>
+          <span style="color:#9CA3AF;font-size:17px;">기억에 전적으로 의존</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;">
+          <div style="width:20px;height:20px;border-radius:6px;background:#FEF2F2;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="color:#F87171;font-size:11px;font-weight:700;">✕</span></div>
+          <span style="color:#9CA3AF;font-size:17px;">날씨·목적지 반영 불가</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grd-border">
+      <div class="grd-inner" style="position:relative;">
+        <div style="position:absolute;top:0;right:0;background:linear-gradient(135deg,#5845F5,#8B7AF8);color:white;font-size:10px;font-weight:700;padding:5px 14px;border-radius:999px;">너머</div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#5845F5;margin-bottom:14px;display:flex;align-items:center;gap:8px;"><div style="width:14px;height:1.5px;background:#5845F5;border-radius:1px;"></div>자동 개입 시스템</div>
+        <div style="display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(88,69,245,.1);">
+            <div style="width:20px;height:20px;border-radius:6px;background:rgba(88,69,245,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="color:#5845F5;font-size:12px;font-weight:800;">✓</span></div>
+            <span style="color:#1E1B4B;font-size:17px;font-weight:500;">현관 통과 시 자동 실행</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(88,69,245,.1);">
+            <div style="width:20px;height:20px;border-radius:6px;background:rgba(88,69,245,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="color:#5845F5;font-size:12px;font-weight:800;">✓</span></div>
+            <span style="color:#1E1B4B;font-size:17px;font-weight:500;">날씨·목적지 기반 맞춤 알림</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(88,69,245,.1);">
+            <div style="width:20px;height:20px;border-radius:6px;background:rgba(88,69,245,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="color:#5845F5;font-size:12px;font-weight:800;">✓</span></div>
+            <span style="color:#1E1B4B;font-size:17px;font-weight:500;">출발 게이트로 행동 강제</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(88,69,245,.1);">
+            <div style="width:20px;height:20px;border-radius:6px;background:rgba(88,69,245,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="color:#5845F5;font-size:12px;font-weight:800;">✓</span></div>
+            <span style="color:#1E1B4B;font-size:17px;font-weight:500;">상황(Context)이 행동을 유도</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 0;">
+            <div style="width:20px;height:20px;border-radius:6px;background:rgba(88,69,245,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><span style="color:#5845F5;font-size:12px;font-weight:800;">✓</span></div>
+            <span style="color:#1E1B4B;font-size:17px;font-weight:500;">사용자 개입 최소화</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 하단 3개 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;flex-shrink:0;">
+    <div style="background:white;border-radius:13px;padding:14px 18px;text-align:center;border:1px solid rgba(0,0,0,.06);box-shadow:0 1px 3px rgba(0,0,0,.04);">
+      <div style="font-size:22px;margin-bottom:7px;">🔄</div>
+      <p style="color:#C4C2D8;font-size:12px;text-decoration:line-through;margin-bottom:4px;">기억 의존</p>
+      <p style="font-size:15px;font-weight:700;color:#2563EB;">상황 트리거</p>
+    </div>
+    <div style="background:white;border-radius:13px;padding:14px 18px;text-align:center;border:1px solid rgba(0,0,0,.06);box-shadow:0 1px 3px rgba(0,0,0,.04);">
+      <div style="font-size:22px;margin-bottom:7px;">⚡</div>
+      <p style="color:#C4C2D8;font-size:12px;text-decoration:line-through;margin-bottom:4px;">수동 확인</p>
+      <p style="font-size:15px;font-weight:700;color:#7C3AED;">자동 감지</p>
+    </div>
+    <div style="background:white;border-radius:13px;padding:14px 18px;text-align:center;border:1px solid rgba(0,0,0,.06);box-shadow:0 1px 3px rgba(0,0,0,.04);">
+      <div style="font-size:22px;margin-bottom:7px;">🔒</div>
+      <p style="color:#C4C2D8;font-size:12px;text-decoration:line-through;margin-bottom:4px;">단순 메모</p>
+      <p style="font-size:15px;font-weight:700;color:#5845F5;">행동 게이트</p>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ═══════════ 07 CLOSING ═══════════ -->
+<div class="slide dark-slide">
+  <div class="dot-grid"></div>
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:280px;font-weight:900;color:rgba(255,255,255,.018);line-height:1;letter-spacing:-12px;pointer-events:none;user-select:none;white-space:nowrap;">너머</div>
+  <div style="position:absolute;left:80px;top:80px;bottom:80px;width:1px;background:linear-gradient(180deg,transparent,rgba(88,69,245,.3) 30%,rgba(88,69,245,.3) 70%,transparent);pointer-events:none;"></div>
+  <div style="position:absolute;right:80px;top:80px;bottom:80px;width:1px;background:linear-gradient(180deg,transparent,rgba(88,69,245,.2) 30%,rgba(88,69,245,.2) 70%,transparent);pointer-events:none;"></div>
+
+  <div class="slide-num">
+    <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,.5);">07</span>
+    <span style="font-size:10px;color:rgba(255,255,255,.15);">/07</span>
+  </div>
+
+  <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:60px 120px;">
+
+    <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(88,69,245,.15);border:1px solid rgba(88,69,245,.3);border-radius:999px;padding:5px 18px;margin-bottom:28px;">
+      <span style="width:4px;height:4px;border-radius:50%;background:#5845F5;"></span>
+      <span style="font-size:9px;font-weight:700;letter-spacing:.3em;text-transform:uppercase;color:#8B7AF8;">UX Portfolio · 너머</span>
+    </div>
+
+    <h1 style="font-size:104px;line-height:.95;font-weight:900;color:white;letter-spacing:-5px;margin-bottom:18px;">너머</h1>
+
+    <p style="color:#8B7AF8;font-size:19px;font-weight:300;letter-spacing:.05em;margin-bottom:24px;">행동 개입 기반 외출 보조 시스템</p>
+
+    <div style="width:56px;height:1px;background:linear-gradient(90deg,transparent,#3D2FB0,transparent);margin-bottom:24px;"></div>
+
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:28px;">
+      <span style="color:#3D2FB0;font-size:12px;font-weight:500;">Problem Definition</span>
+      <span style="color:#231A6B;font-size:10px;">·</span>
+      <span style="color:#3D2FB0;font-size:12px;font-weight:500;">Insight & Strategy</span>
+      <span style="color:#231A6B;font-size:10px;">·</span>
+      <span style="color:#3D2FB0;font-size:12px;font-weight:500;">Structure & System</span>
+      <span style="color:#231A6B;font-size:10px;">·</span>
+      <span style="color:#3D2FB0;font-size:12px;font-weight:500;">Usage Flow</span>
+      <span style="color:#231A6B;font-size:10px;">·</span>
+      <span style="color:#3D2FB0;font-size:12px;font-weight:500;">Differentiation</span>
+    </div>
+
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:20px 52px;">
+      <p style="color:white;font-size:17px;font-weight:800;line-height:1.5;letter-spacing:-.2px;">"기억이 아니라 상황이 행동을 만든다"</p>
+      <p style="color:#3D2FB0;font-size:13px;margin-top:6px;font-weight:300;">의지력이 아닌 설계로 해결</p>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

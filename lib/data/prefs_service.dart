@@ -261,6 +261,9 @@ class PrefsService {
   static String _kChecklistTriggerDays(String placeId) =>
       'checklist_trigger_days_$placeId';
 
+  static String _kChecklistTriggerDaysFor(String placeId, String trigger) =>
+      'checklist_trigger_days_${placeId}_$trigger';
+
   /// 선택된 요일 목록. 0=일, 1=월, ..., 6=토. 기본값: 매일(0~6).
   static Future<List<int>> getChecklistTriggerDays(String placeId) async {
     final p = await SharedPreferences.getInstance();
@@ -274,6 +277,34 @@ class PrefsService {
     final p = await SharedPreferences.getInstance();
     await p.setStringList(
         _kChecklistTriggerDays(placeId), days.map((d) => '$d').toList());
+  }
+
+  /// 트리거별 요일 목록. 기본값: 월~금 [1,2,3,4,5].
+  static Future<List<int>> getChecklistTriggerDaysFor(
+      String placeId, String trigger) async {
+    final p = await SharedPreferences.getInstance();
+    final stored =
+        p.getStringList(_kChecklistTriggerDaysFor(placeId, trigger));
+    if (stored != null) return stored.map(int.parse).toList();
+    // 'time' 트리거는 기존 공유 키에서 마이그레이션
+    if (trigger == 'time') {
+      final shared = p.getStringList(_kChecklistTriggerDays(placeId));
+      if (shared != null) return shared.map(int.parse).toList();
+    }
+    return [1, 2, 3, 4, 5]; // 기본값: 월~금
+  }
+
+  static Future<void> setChecklistTriggerDaysFor(
+      String placeId, String trigger, List<int> days) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setStringList(
+        _kChecklistTriggerDaysFor(placeId, trigger),
+        days.map((d) => '$d').toList());
+    // 'time' 트리거는 기존 키에도 저장 (하위 호환)
+    if (trigger == 'time') {
+      await p.setStringList(
+          _kChecklistTriggerDays(placeId), days.map((d) => '$d').toList());
+    }
   }
 
   // ── Alarm Mode (시간 vs 위치) ──────────────────────────────────────────────

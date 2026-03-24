@@ -309,7 +309,12 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
     final progress = total == 0 ? 0.0 : checkedCount / total;
     final extraAllowed = ref.watch(_extraProvider);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go('/home');
+      },
+      child: Scaffold(
       backgroundColor: NeomeDesignSystem.background,
       body: SafeArea(
         child: Column(
@@ -409,14 +414,8 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
                     ),
                   ),
 
-                  // ── 추천 준비물 (최상단) ──────────────────────────
-                  _buildCategorySection(items, '추천 준비물', notifier, highlight: true),
-
-                  // ── Supplies Section ──────────────────────────
-                  _buildCategorySection(items, '준비물', notifier),
-
-                  // ── Actions Section ───────────────────────────
-                  _buildCategorySection(items, '행동', notifier),
+                  // ── 전체 체크리스트 (하나의 박스) ─────────────────
+                  _buildAllSections(items, notifier),
 
                   // ── Add item ─────────────────────────────────
                   SliverToBoxAdapter(
@@ -543,57 +542,84 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
           ],
         ),
       ),
-    );
+    )); // PopScope
   }
 
-  Widget _buildCategorySection(List<ChecklistItem> items, String category, ChecklistNotifier notifier, {bool highlight = false}) {
-    final filteredItems = items.where((i) => i.category == category).toList();
-    if (filteredItems.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+  /// 추천 준비물, 준비물, 행동을 하나의 카드 박스로 묶어 표시
+  Widget _buildAllSections(List<ChecklistItem> items, ChecklistNotifier notifier) {
+    final recommended = items.where((i) => i.category == '추천 준비물').toList();
+    final supplies    = items.where((i) => i.category == '준비물').toList();
+    final actions     = items.where((i) => i.category == '행동').toList();
+
+    final hasRecommended = recommended.isNotEmpty;
+    final hasSupplies    = supplies.isNotEmpty;
+    final hasActions     = actions.isNotEmpty;
+
+    if (!hasRecommended && !hasSupplies && !hasActions) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
 
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 8),
-              child: Row(
-                children: [
-                  if (highlight) ...[
-                    const Icon(Icons.auto_awesome, size: 13, color: NeomeDesignSystem.primary),
-                    const SizedBox(width: 4),
-                  ],
-                  Text(
-                    category,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: highlight ? NeomeDesignSystem.primary : const Color(0xFF64748B),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Card(
-              color: highlight ? NeomeDesignSystem.primary.withOpacity(0.04) : null,
-              child: Column(
-                children: filteredItems.asMap().entries.map((e) {
-                  final item = e.value;
-                  return Column(
-                    children: [
-                      if (e.key > 0)
-                        Divider(height: 1, color: Colors.grey.shade50),
-                      _buildItemTile(item, notifier),
-                    ],
-                  );
-                }).toList(),
-              ),
-            ),
-          ],
+        child: Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (hasRecommended) ...[
+                _buildCategoryHeader('추천 준비물', highlight: true),
+                ..._buildItemTiles(recommended, notifier),
+              ],
+              if (hasRecommended && (hasSupplies || hasActions))
+                const Divider(height: 1),
+              if (hasSupplies) ...[
+                _buildCategoryHeader('준비물'),
+                ..._buildItemTiles(supplies, notifier),
+              ],
+              if (hasSupplies && hasActions)
+                const Divider(height: 1),
+              if (hasActions) ...[
+                _buildCategoryHeader('행동'),
+                ..._buildItemTiles(actions, notifier),
+              ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Widget _buildCategoryHeader(String category, {bool highlight = false}) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+      child: Row(
+        children: [
+          if (highlight) ...[
+            const Icon(Icons.auto_awesome, size: 13, color: NeomeDesignSystem.primary),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            category,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: highlight ? NeomeDesignSystem.primary : const Color(0xFF64748B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildItemTiles(List<ChecklistItem> filteredItems, ChecklistNotifier notifier) {
+    return filteredItems.asMap().entries.map((e) {
+      return Column(
+        children: [
+          if (e.key > 0) Divider(height: 1, color: Colors.grey.shade50),
+          _buildItemTile(e.value, notifier),
+        ],
+      );
+    }).toList();
   }
 
   Widget _buildItemTile(ChecklistItem item, ChecklistNotifier notifier) {

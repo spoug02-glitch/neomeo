@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>너머 — 화면 프리뷰</title>
+  <style>
+    /* ── Design Tokens ── */
+    :root {
+      --primary:  #FF4500;
+      --primary10: rgba(255,69,0,0.10);
+      --primary20: rgba(255,69,0,0.20);
+
+      --bg-app:   #F2F4F6;
+      --surface:  #FFFFFF;
+      --txt:      #191F28;
+      --txt2:     #8B95A1;
+      --hint:     #ADB5BD;
+      --border:   #E5E8EB;
+      --border2:  #F0F2F5;
+
+      --green:    #22C55E;
+      --red:      #EF4444;
+      --blue:     #3B82F6;
+      --sky:      #7DD3FC;
+      --amber:    #F59E0B;
+
+      /* Page chrome */
+      --page-bg:  #0d0d0d;
+      --page-surf:#1a1a1a;
+      --page-bord:#252525;
+      --page-txt: #F0F0F0;
+      --page-sub: #888;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif;
+      background: var(--page-bg);
+      color: var(--page-txt);
+      min-height: 100vh;
+    }
+
+    /* ── Page Header ── */
+    .page-header {
+      text-align: center;
+      padding: 60px 20px 52px;
+      border-bottom: 1px solid var(--page-bord);
+    }
+    .page-header .logo {
+      display: inline-block;
+      width: 52px; height: 52px;
+      margin-bottom: 16px;
+    }
+    .page-header .logo svg { width: 100%; height: 100%; }
+    .page-header h1 { font-size: 34px; font-weight: 900; letter-spacing: -1px; }
+    .page-header h1 span { color: var(--primary); }
+    .page-header p { font-size: 14px; color: var(--page-sub); margin-top: 10px; }
+
+    /* ── Section Wrapper ── */
+    .section {
+      display: flex;
+      align-items: flex-start;
+      gap: 52px;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 72px 36px;
+      border-bottom: 1px solid var(--page-bord);
+    }
+    .section:last-child { border-bottom: none; }
+    .section.reverse { flex-direction: row-reverse; }
+
+    /* ── Phone Frame ── */
+    .phone-wrap { flex-shrink: 0; }
+    .phone {
+      width: 300px;
+      height: 630px;
+      background: var(--bg-app);
+      border-radius: 44px;
+      border: 8px solid #1e1e1e;
+      box-shadow:
+        0 0 0 1px #2e2e2e,
+        0 32px 72px rgba(0,0,0,0.75);
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    .phone::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%; transform: translateX(-50%);
+      width: 88px; height: 22px;
+      background: #1e1e1e;
+      border-radius: 0 0 14px 14px;
+      z-index: 10;
+    }
+    .status-bar {
+      height: 36px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 0 18px 5px;
+      font-size: 10px;
+      color: var(--txt2);
+      flex-shrink: 0;
+      background: var(--bg-app);
+    }
+    .screen {
+      flex: 1;
+      overflow: hidden;
+      padding: 10px 14px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .bottom-nav {
+      height: 56px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      flex-shrink: 0;
+    }
+    .nav-item {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 2px; font-size: 8px; color: var(--hint); flex: 1;
+    }
+    .nav-item.active { color: var(--txt); font-weight: 700; }
+    .nav-icon { font-size: 15px; }
+
+    /* ── Phone Inner Components ── */
+    .p-card {
+      background: var(--surface);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 11px 13px;
+    }
+    .p-label {
+      font-size: 8px; color: var(--hint);
+      letter-spacing: 0.6px; text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+    .p-row { display: flex; align-items: center; justify-content: space-between; }
+    .p-txt  { font-size: 10px; color: var(--txt2); }
+    .p-bold { font-size: 11px; color: var(--txt); font-weight: 600; }
+
+    /* progress bar */
+    .bar-track { height: 7px; background: var(--border); border-radius: 5px; overflow: hidden; }
+    .bar-fill  { height: 100%; border-radius: 5px; }
+
+    /* Checklist item tile */
+    .cl-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 8px 12px;
+      background: var(--surface);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    .cl-circle {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .cl-circle.checked {
+      background: var(--primary); border-color: var(--primary);
+    }
+    .cl-check { font-size: 9px; color: white; }
+    .cl-label { font-size: 10px; color: var(--txt); font-weight: 500; flex: 1; }
+    .cl-label.done { color: var(--hint); text-decoration: line-through; }
+
+    /* category badge */
+    .cat-badge {
+      font-size: 7px; font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: var(--primary10);
+      color: var(--primary);
+    }
+    .cat-badge.act { background: rgba(34,197,94,0.1); color: var(--green); }
+    .cat-badge.rec { background: var(--primary10); color: var(--primary); }
+
+    /* section title (inside phone) */
+    .p-sec {
+      display: flex; align-items: center; gap: 4px;
+      font-size: 9px; font-weight: 700; color: var(--txt2);
+      padding-left: 2px; margin-bottom: 4px;
+    }
+    .p-sec.highlight { color: var(--primary); }
+
+    /* chip */
+    .p-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--primary10);
+      border: 1px solid var(--primary20);
+      border-radius: 20px;
+      padding: 3px 9px;
+      font-size: 9px; font-weight: 600; color: var(--primary);
+    }
+
+    /* settings row */
+    .s-header {
+      font-size: 8px; color: var(--hint);
+      letter-spacing: 0.8px; text-transform: uppercase;
+      margin-bottom: 4px; padding-left: 2px;
+    }
+    .s-group {
+      background: var(--surface);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .s-row {
+      display: flex; align-items: center;
+      padding: 8px 10px; gap: 8px;
+      border-bottom: 1px solid var(--border2);
+    }
+    .s-row:last-child { border-bottom: none; }
+    .s-icon { font-size: 12px; width: 18px; text-align: center; flex-shrink: 0; }
+    .s-text { flex: 1; }
+    .s-title { font-size: 10px; color: var(--txt); font-weight: 500; }
+    .s-sub   { font-size: 8px; color: var(--hint); }
+    .s-trail { font-size: 9px; color: var(--txt2); }
+    .s-trail.green { color: var(--green); }
+    .s-trail.red   { color: var(--red); }
+    .s-expand { font-size: 11px; color: var(--hint); }
+    .sw { width: 26px; height: 15px; background: var(--border); border-radius: 8px; position: relative; flex-shrink: 0; }
+    .sw.on { background: rgba(255,69,0,0.25); }
+    .sw::after { content:''; position:absolute; width:12px; height:12px; background:var(--hint); border-radius:50%; top:1.5px; left:1.5px; }
+    .sw.on::after { left:12px; background:var(--primary); }
+
+    /* place card */
+    .place-card {
+      background: var(--surface);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .place-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px;
+    }
+    .place-divider { height: 1px; background: var(--border2); }
+    .place-checklist {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px; font-size: 9px; color: var(--txt2);
+    }
+    .radio-dot {
+      width: 13px; height: 13px;
+      border-radius: 50%; border: 2px solid var(--primary);
+      flex-shrink: 0; position: relative;
+    }
+    .radio-dot.on::after {
+      content:''; position:absolute; inset:2px;
+      border-radius:50%; background:var(--primary);
+    }
+
+    /* radio list tile */
+    .radio-tile {
+      display: flex; align-items: flex-start; gap: 9px;
+      padding: 9px 11px;
+      border-bottom: 1px solid var(--border2);
+    }
+    .radio-tile:last-child { border-bottom: none; }
+    .radio-outer {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid var(--border);
+      flex-shrink: 0; margin-top: 1px;
+      position: relative;
+    }
+    .radio-outer.sel { border-color: var(--primary); }
+    .radio-outer.sel::after {
+      content:''; position:absolute; inset:2px;
+      border-radius:50%; background:var(--primary);
+    }
+    .rt-body { display:flex; flex-direction:column; gap:2px; }
+    .rt-title { font-size:10px; font-weight:600; color:var(--txt); }
+    .rt-sub   { font-size:8px; color:var(--hint); }
+    .rt-place { color:var(--primary); font-weight:600; text-decoration:underline; opacity:.6; }
+    .time-pill {
+      display:inline-block;
+      background:var(--primary10); color:var(--primary);
+      font-size:9px; font-weight:700;
+      padding: 2px 8px; border-radius:6px; margin-left:6px;
+    }
+
+    /* weather card inner */
+    .wx-grid {
+      display: flex; align-items: stretch; gap: 0;
+    }
+    .wx-left { flex: 3; display:flex; align-items:center; gap:6px; }
+    .wx-divider { width:1px; background:var(--border); margin: 0 10px; }
+    .wx-right {
+      flex: 2; display:flex; flex-direction:column;
+    }
+    .wx-cell {
+      flex: 1; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:2px;
+    }
+    .wx-cell + .wx-cell { border-top: 1px solid var(--border); }
+    .wx-lbl { font-size:8px; color:var(--hint); }
+    .wx-val { font-size:15px; font-weight:700; }
+    .wx-temp { font-size:22px; font-weight:800; color:var(--txt); }
+    .wx-desc { font-size:9px; color:var(--hint); }
+    .wx-strip {
+      display:flex; align-items:center; gap:5px;
+      background:var(--primary10);
+      border-radius:8px; padding:5px 9px;
+      font-size:9px; font-weight:600; color:#555;
+    }
+    .wx-chips { display:flex; align-items:center; gap:5px; }
+
+    /* header inside phone */
+    .ph-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 2px 0;
+    }
+    .ph-logo-wrap { display:flex; align-items:center; gap:6px; }
+    .ph-logo svg { width:22px; height:22px; }
+    .ph-title { font-size:13px; font-weight:900; color:var(--txt); letter-spacing:-0.5px; }
+    .ph-sub   { font-size:9px; color:var(--hint); margin-top:-2px; }
+
+    /* ── Description Side ── */
+    .desc {
+      flex: 1;
+      display: flex; flex-direction: column;
+      justify-content: center;
+      gap: 0;
+      padding-top: 8px;
+    }
+    .desc-tag {
+      display: inline-block;
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 1.4px; text-transform: uppercase;
+      color: var(--primary);
+      margin-bottom: 12px;
+    }
+    .desc h2 {
+      font-size: 26px; font-weight: 900;
+      letter-spacing: -0.5px; line-height: 1.2;
+      margin-bottom: 14px;
+    }
+    .desc h2 em { font-style: normal; color: var(--primary); }
+    .desc p {
+      font-size: 14px; color: var(--page-sub);
+      line-height: 1.7; margin-bottom: 24px;
+    }
+    .feat-list { display: flex; flex-direction: column; gap: 12px; }
+    .feat { display: flex; align-items: flex-start; gap: 12px; }
+    .feat-icon {
+      font-size: 17px;
+      width: 36px; height: 36px;
+      background: var(--page-surf);
+      border: 1px solid var(--page-bord);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .feat-text { display: flex; flex-direction: column; gap: 2px; }
+    .feat-title { font-size: 13px; font-weight: 600; color: var(--page-txt); }
+    .feat-desc  { font-size: 12px; color: var(--page-sub); line-height: 1.5; }
+
+    /* section accent overrides */
+    .section.s-cl    .desc-tag { color: var(--primary); }
+    .section.s-cl    .desc h2 em { color: var(--primary); }
+    .section.s-set   .desc-tag { color: var(--txt2); }
+    .section.s-set   .desc h2 em { color: #aaa; }
+    .section.s-csset .desc-tag { color: var(--amber); }
+    .section.s-csset .desc h2 em { color: var(--amber); }
+
+    /* ── Responsive ── */
+    @media (max-width: 760px) {
+      .section, .section.reverse {
+        flex-direction: column;
+        align-items: center;
+        padding: 48px 20px;
+        gap: 32px;
+      }
+      .desc { padding-top: 0; }
+      .desc h2 { font-size: 22px; }
+    }
+    @media (max-width: 360px) {
+      .phone { width: 260px; height: 550px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Page Header ── -->
+<div class="page-header">
+  <div class="logo">
+    <!-- WindowLogo (window-pane icon, primary color) -->
+    <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="3" width="46" height="46" rx="7" stroke="#FF4500" stroke-width="4.2"/>
+      <rect x="3" y="23.9" width="46" height="4.2" fill="#FF4500"/>
+      <rect x="23.9" y="3" width="4.2" height="46" fill="#FF4500"/>
+    </svg>
+  </div>
+  <h1>너<span>머</span></h1>
+  <p>외출 전, 조용히 안심을 더해요 · 주요 화면 소개</p>
+</div>
+
+
+<!-- ═══════════════════════════════════════
+     1. 홈 화면
+═══════════════════════════════════════ -->
+<div class="section">
+  <!-- Phone -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>🔋</span></div>
+      <div class="screen">
+
+        <!-- 앱 헤더 -->
+        <div class="ph-header">
+          <div class="ph-logo-wrap">
+            <svg viewBox="0 0 52 52" fill="none">
+              <rect x="3" y="3" width="46" height="46" rx="7" stroke="#FF4500" stroke-width="4.2"/>
+              <rect x="3" y="23.9" width="46" height="4.2" fill="#FF4500"/>
+              <rect x="23.9" y="3" width="4.2" height="46" fill="#FF4500"/>
+            </svg>
+            <div>
+              <div class="ph-title">너머</div>
+              <div class="ph-sub">외출 전, 조용히 안심을 더해요</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 날씨 카드 -->
+        <div class="p-card" style="padding:12px 13px;">
+          <div class="wx-grid">
+            <!-- 좌: 날씨 이모지 + 온도 + 풍향 -->
+            <div class="wx-left">
+              <span style="font-size:38px;">🌤️</span>
+              <div>
+                <div class="wx-temp">18.4°C</div>
+                <div class="wx-desc">남서풍 2.8m/s</div>
+              </div>
+            </div>
+            <div class="wx-divider"></div>
+            <!-- 우: 강수확률 / 미세먼지 -->
+            <div class="wx-right">
+              <div class="wx-cell">
+                <div class="wx-lbl">강수확률</div>
+                <div class="wx-val" style="color:#42A5F5;font-size:18px;">20%</div>
+              </div>
+              <div class="wx-cell">
+                <div class="wx-lbl">미세먼지</div>
+                <div class="wx-val" style="color:#4CAF50;font-size:14px;">좋음</div>
+              </div>
+            </div>
+          </div>
+          <!-- 옷차림 -->
+          <div class="wx-strip" style="margin-top:9px;">
+            <span style="font-size:11px;color:var(--primary);">👔</span>
+            오늘의 추천 옷차림: 긴팔 (기온: 15°~21°)
+          </div>
+          <!-- 준비물 칩 -->
+          <div class="wx-chips" style="margin-top:7px;">
+            <span style="font-size:9px;font-weight:600;color:#555;">준비물</span>
+            <div class="p-chip">😊 웃음</div>
+          </div>
+        </div>
+
+        <!-- 외출할 때 체크리스트 카드 -->
+        <div style="position:relative;">
+          <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:18px;padding:18px 16px;display:flex;align-items:center;gap:14px;">
+            <span style="font-size:32px;">🎒</span>
+            <div style="flex:1;">
+              <div style="font-size:15px;font-weight:800;color:var(--txt);">외출할 때</div>
+              <div style="font-size:11px;color:var(--hint);margin-top:3px;">체크리스트 확인하기</div>
+            </div>
+            <span style="font-size:16px;color:var(--hint);">›</span>
+          </div>
+          <!-- 톱니바퀴 -->
+          <div style="position:absolute;top:7px;right:7px;font-size:13px;color:var(--border);">⚙</div>
+        </div>
+
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item active"><div class="nav-icon">🏠</div><div>홈</div></div>
+        <div class="nav-item"><div class="nav-icon">⚙️</div><div>설정</div></div>
+        <div class="nav-item"><div class="nav-icon">📅</div><div>달력</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Description -->
+  <div class="desc">
+    <span class="desc-tag">홈 화면</span>
+    <h2>외출 준비를<br><em>한눈에</em> 확인</h2>
+    <p>날씨 정보와 체크리스트 진입 카드를 한 화면에서 제공합니다.<br>지오펜싱으로 집을 나서는 순간 자동 알림이 울립니다.</p>
+    <div class="feat-list">
+      <div class="feat">
+        <div class="feat-icon">🌤️</div>
+        <div class="feat-text">
+          <div class="feat-title">날씨 카드</div>
+          <div class="feat-desc">현재 기온 · 풍향풍속 · 강수확률 · 미세먼지를 한 카드에. 우산/마스크 필요시 자동 추천 칩 표시.</div>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">👔</div>
+        <div class="feat-text">
+          <div class="feat-title">옷차림 추천</div>
+          <div class="feat-desc">향후 12시간 예보 기반 평균 기온으로 추천. 일교차 8° 이상 시 가디건 추가 안내.</div>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">🎒</div>
+        <div class="feat-text">
+          <div class="feat-title">외출 체크리스트 카드</div>
+          <div class="feat-desc">탭하면 체크리스트 진입. 우측 상단 ⚙로 알림 시점·항목 설정 바로 이동.</div>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">📍</div>
+        <div class="feat-text">
+          <div class="feat-title">지오펜싱 자동 감지</div>
+          <div class="feat-desc">집 위치를 기준으로 반경 80m를 벗어나는 순간 체크리스트 알림 발송.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════
+     2. 체크리스트 화면
+═══════════════════════════════════════ -->
+<div class="section s-cl reverse">
+  <!-- Phone -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>🔋</span></div>
+      <div class="screen" style="gap:6px;">
+
+        <!-- 헤더 -->
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:9px;color:var(--hint);">‹ 뒤로</span>
+          <div style="background:var(--primary10);border-radius:8px;padding:3px 9px;">
+            <span style="font-size:9px;font-weight:700;color:var(--primary);">외출</span>
+          </div>
+        </div>
+
+        <!-- 타이틀 + 진행 바 -->
+        <div>
+          <div style="font-size:17px;font-weight:800;color:var(--txt);letter-spacing:-0.5px;">준비물 확인</div>
+          <div style="font-size:9px;color:var(--hint);margin:2px 0 8px;">필요한 것을 챙겼는지 확인해요</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="bar-track" style="flex:1;">
+              <div class="bar-fill" style="width:60%;background:var(--primary);"></div>
+            </div>
+            <span style="font-size:9px;color:var(--hint);">3 / 5</span>
+          </div>
+        </div>
+
+        <!-- 추천 준비물 -->
+        <div>
+          <div class="p-sec highlight">✨ 추천 준비물</div>
+          <div class="cl-item">
+            <div class="cl-circle checked"><div class="cl-check">✓</div></div>
+            <div class="cl-label done">☂ 우산</div>
+            <div class="cat-badge rec">추천</div>
+          </div>
+        </div>
+
+        <!-- 준비물 -->
+        <div>
+          <div class="p-sec">준비물</div>
+          <div style="display:flex;flex-direction:column;gap:5px;">
+            <div class="cl-item">
+              <div class="cl-circle checked"><div class="cl-check">✓</div></div>
+              <div class="cl-label done">지갑</div>
+            </div>
+            <div class="cl-item">
+              <div class="cl-circle checked"><div class="cl-check">✓</div></div>
+              <div class="cl-label done">폰</div>
+            </div>
+            <div class="cl-item">
+              <div class="cl-circle"></div>
+              <div class="cl-label">열쇠</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 행동 -->
+        <div>
+          <div class="p-sec">행동</div>
+          <div class="cl-item">
+            <div class="cl-circle"></div>
+            <div class="cl-label">불 끄기</div>
+            <div class="cat-badge act">행동</div>
+          </div>
+        </div>
+
+        <!-- 출발 버튼 (disabled) -->
+        <div style="margin-top:auto;padding-bottom:8px;">
+          <div style="background:var(--border);border-radius:14px;padding:12px;text-align:center;font-size:13px;font-weight:700;color:var(--hint);">
+            출발해요
+          </div>
+        </div>
+
+      </div>
+      <!-- no bottom nav on checklist screen -->
+    </div>
+  </div>
+
+  <!-- Description -->
+  <div class="desc">
+    <span class="desc-tag">체크리스트 화면</span>
+    <h2>챙겼는지<br><em>하나하나</em> 확인</h2>
+    <p>알림을 받은 순간 체크리스트가 열립니다.<br>모든 항목을 체크해야 출발 버튼이 활성화됩니다.</p>
+    <div class="feat-list">
+      <div class="feat">
+        <div class="feat-icon">✨</div>
+        <div class="feat-text">
+          <div class="feat-title">추천 준비물 (최상단)</div>
+          <div class="feat-desc">날씨 API로 우산/마스크 필요 여부를 판단해 자동 추가. 필요 없으면 "😊 웃음"으로 대체.</div>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">📋</div>
+        <div class="feat-text">
+          <div class="feat-title">준비물 · 행동 분리</div>
+          <div class="feat-desc">챙겨야 할 물건(준비물)과 해야 할 일(행동)을 카테고리로 구분해 표시.</div>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">📊</div>
+        <div class="feat-text">
+          <div class="feat-title">진행 바</div>
+          <div class="feat-desc">체크된 항목 수 / 전체 수를 프로그레스 바로 표시. 전체 체크 시 출발 버튼 활성화.</div>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">⚡</div>
+        <div class="feat-text">
+          <div class="feat-title">즉시 로딩</div>
+          <div class="feat-desc">진입 시 날씨 API를 병렬 호출해 추천 준비물 포함 완성 화면을 한 번에 노출.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════
+     3. 설정 화면
+═══════════════════════════════════════ -->
+<div class="section s-set">
+  <!-- Phone -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>🔋</span></div>
+      <div class="screen" style="gap:6px;">
+
+        <div style="font-size:15px;font-weight:800;color:var(--txt);padding:2px 0 4px;">설정</div>
+
+        <!-- 권한 관리 (접힘) -->
+        <div class="s-header">권한 관리</div>
+        <div class="s-group">
+          <div class="s-row" style="cursor:pointer;">
+            <div class="s-icon">🔒</div>
+            <div class="s-text"><div class="s-title">필요한 권한</div></div>
+            <div class="s-expand">∨</div>
+          </div>
+        </div>
+
+        <!-- 알림 방해금지 -->
+        <div class="s-header">알림 방해금지</div>
+        <div class="s-group">
+          <div class="s-row">
+            <div class="s-icon">🔕</div>
+            <div class="s-text"><div class="s-title">방해금지 모드</div><div class="s-sub">설정 시간대 알림 차단</div></div>
+            <div class="sw"></div>
+          </div>
+        </div>
+
+        <!-- 자동 연동 -->
+        <div class="s-header">자동 연동 설정</div>
+        <div class="s-group">
+          <div class="s-row">
+            <div class="s-icon">🌧️</div>
+            <div class="s-text"><div class="s-title">날씨 연동 (우산)</div><div class="s-sub">비·눈 예보 시 자동 추가</div></div>
+            <div class="sw on"></div>
+          </div>
+          <div class="s-row">
+            <div class="s-icon">😷</div>
+            <div class="s-text"><div class="s-title">미세먼지 연동 (마스크)</div><div class="s-sub">나쁨 이상 시 자동 추가</div></div>
+            <div class="sw on"></div>
+          </div>
+        </div>
+
+        <!-- 장소 관리 -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px;">
+          <div class="s-header" style="margin-bottom:0;">장소 관리</div>
+          <span style="font-size:16px;color:var(--primary);">⊕</span>
+        </div>
+
+        <!-- 장소 카드 -->
+        <div class="place-card">
+          <div class="place-row">
+            <div class="radio-dot on"></div>
+            <div style="flex:1;">
+              <div style="font-size:10px;font-weight:700;color:var(--txt);">우리집</div>
+              <div style="font-size:8px;color:var(--hint);">서울특별시 마포구</div>
+            </div>
+            <span style="font-size:13px;color:var(--red);">🗑</span>
+          </div>
+          <div class="place-divider"></div>
+          <div class="place-checklist">
+            <span style="font-size:13px;">📋</span>
+            <div style="flex:1;">
+              <div style="font-size:9px;font-weight:600;color:var(--txt);">관련 체크리스트 : 외출</div>
+              <div style="font-size:8px;color:var(--hint);">알림 시점 · 기본 준비물 관리</div>
+            </div>
+            <span style="font-size:11px;color:var(--hint);">›</span>
+          </div>
+        </div>
+
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item"><div class="nav-icon">🏠</div><div>홈</div></div>
+        <div class="nav-item active"><div class="nav-icon">⚙️</div><div>설정</div></div>
+        <div class="nav-item"><div class="nav-icon">📅</div><div>달력</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Description -->
+  <div class="desc">
+    <span class="desc-tag">설정 화면</span>
+    <h2>앱을<br><em>세밀하게</em> 제어</h2>
+    <p>권한 현황, 날씨 연동, 장소 관리를 한 화면에서 관리합니다.</p>
+    <div class="feat-list">
+      <div class="feat">
+        <div class="feat-icon">🔒</div>
+        <div class="feat-text">
+          <div class="feat-title">권한 관리 드롭박스</div>
+          <div class="feat-desc">기본 닫힌 상태. 탭하면 알림·위치(사용 중)·위치(항상)·배터리 최적화 4가지 현황과 "앱 설정 열기" 버튼 노출.</div>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">📍</div>
+        <div class="feat-text">
+          <div class="feat-title">장소 관리</div>
+          <div class="feat-desc">여러 장소 등록 가능. 활성 장소를 라디오 버튼으로 선택하면 지오펜스가 즉시 갱신됨.</div>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">📋</div>
+        <div class="feat-text">
+          <div class="feat-title">관련 체크리스트 링크</div>
+          <div class="feat-desc">각 장소 카드 아래에 "관련 체크리스트 : 외출" 항목이 있어 바로 진입 가능.</div>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">🌧️</div>
+        <div class="feat-text">
+          <div class="feat-title">날씨 자동 연동</div>
+          <div class="feat-desc">우산(비·눈 예보)·마스크(미세먼지 나쁨) 자동 추가 여부를 각각 토글로 제어.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════
+     4. 체크리스트 설정 화면
+═══════════════════════════════════════ -->
+<div class="section s-csset reverse">
+  <!-- Phone -->
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="status-bar"><span>9:41</span><span>🔋</span></div>
+      <div class="screen" style="gap:8px;">
+
+        <!-- AppBar -->
+        <div style="display:flex;align-items:center;gap:8px;padding-bottom:4px;">
+          <span style="font-size:12px;color:var(--hint);">‹</span>
+          <div style="font-size:13px;font-weight:800;color:var(--txt);">외출 체크리스트 설정</div>
+        </div>
+
+        <!-- 알림 시점 -->
+        <div class="s-header">알림 시점</div>
+        <div class="s-group">
+
+          <!-- 집 나갈 때 (선택됨) -->
+          <div class="radio-tile">
+            <div class="radio-outer sel"></div>
+            <div class="rt-body">
+              <div class="rt-title"><span class="rt-place">우리집</span> 나갈 때</div>
+              <div class="rt-sub">장소를 벗어날 때 알림을 받아요</div>
+            </div>
+          </div>
+
+          <!-- 집 들어올 때 -->
+          <div class="radio-tile">
+            <div class="radio-outer"></div>
+            <div class="rt-body">
+              <div class="rt-title"><span class="rt-place">우리집</span> 들어올 때</div>
+              <div class="rt-sub">장소에 돌아왔을 때 알림을 받아요</div>
+            </div>
+          </div>
+
+          <!-- 특정 시간 -->
+          <div class="radio-tile">
+            <div class="radio-outer"></div>
+            <div class="rt-body">
+              <div class="rt-title">
+                특정 시간
+                <span class="time-pill">08:30</span>
+              </div>
+              <div class="rt-sub">매일 설정한 시간에 알림을 받아요</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 안내 문구 -->
+        <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:10px 12px;display:flex;gap:8px;align-items:flex-start;">
+          <span style="font-size:14px;">💡</span>
+          <div>
+            <div style="font-size:9px;font-weight:600;color:#B45309;">장소 변경 안내</div>
+            <div style="font-size:8px;color:#92400E;margin-top:2px;line-height:1.5;">장소명을 탭하면 연결된 장소를 다른 장소로 바꿀 수 있어요.</div>
+          </div>
+        </div>
+
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item"><div class="nav-icon">🏠</div><div>홈</div></div>
+        <div class="nav-item active"><div class="nav-icon">⚙️</div><div>설정</div></div>
+        <div class="nav-item"><div class="nav-icon">📅</div><div>달력</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Description -->
+  <div class="desc">
+    <span class="desc-tag">체크리스트 설정</span>
+    <h2>알림 받을<br><em>시점을</em> 선택</h2>
+    <p>장소를 나갈 때, 들어올 때, 또는 매일 고정 시간 — 세 가지 중 하나를 고를 수 있습니다.</p>
+    <div class="feat-list">
+      <div class="feat">
+        <div class="feat-icon">🚪</div>
+        <div class="feat-text">
+          <div class="feat-title">나갈 때 (기본)</div>
+          <div class="feat-desc">지오펜스로 장소를 벗어나는 순간 알림. 집 나설 때 못 챙긴 것이 없는지 확인.</div>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">🏠</div>
+        <div class="feat-text">
+          <div class="feat-title">들어올 때</div>
+          <div class="feat-desc">귀가 감지 시 알림. "오늘 챙겨야 할 것" 대신 귀가 후 확인 체크에 활용.</div>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">⏰</div>
+        <div class="feat-text">
+          <div class="feat-title">특정 시간</div>
+          <div class="feat-desc">위치와 무관하게 매일 설정 시각에 알림. 타임 피커로 시간 선택, 인라인 칩으로 즉시 확인.</div>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">📍</div>
+        <div class="feat-text">
+          <div class="feat-title">장소명 탭으로 변경</div>
+          <div class="feat-desc">밑줄 표시된 장소명을 탭하면 바텀시트에서 다른 장소로 즉시 교체 가능.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

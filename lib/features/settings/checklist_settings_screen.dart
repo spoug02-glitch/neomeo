@@ -21,9 +21,14 @@ class ChecklistSettingsScreen extends StatefulWidget {
 }
 
 class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
-  Set<String> _triggers = {'depart'}; // 복수 선택 가능
+  Set<String> _triggers = {'depart'};
   String? _triggerTime;
-  List<int> _triggerDays = [0, 1, 2, 3, 4, 5, 6]; // 0=일~6=토
+  // 트리거별 요일 맵. 기본값: 월~금 [1,2,3,4,5]
+  Map<String, List<int>> _daysFor = {
+    'depart': [1, 2, 3, 4, 5],
+    'enter':  [1, 2, 3, 4, 5],
+    'time':   [1, 2, 3, 4, 5],
+  };
   String _placeId = '';
   String _placeName = '';
   List<Place> _allPlaces = [];
@@ -39,17 +44,32 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
   }
 
   Future<void> _load() async {
-    final triggers    = await PrefsService.getChecklistTriggers(_placeId);
-    final triggerTime = await PrefsService.getChecklistTriggerTime(_placeId);
-    final triggerDays = await PrefsService.getChecklistTriggerDays(_placeId);
-    final places      = await PrefsService.getPlaces();
+    final results = await Future.wait([
+      PrefsService.getChecklistTriggers(_placeId),
+      PrefsService.getChecklistTriggerTime(_placeId),
+      PrefsService.getChecklistTriggerDaysFor(_placeId, 'depart'),
+      PrefsService.getChecklistTriggerDaysFor(_placeId, 'enter'),
+      PrefsService.getChecklistTriggerDaysFor(_placeId, 'time'),
+      PrefsService.getPlaces(),
+    ]);
+
+    final triggers    = results[0] as List<String>;
+    final triggerTime = results[1] as String?;
+    final departDays  = results[2] as List<int>;
+    final enterDays   = results[3] as List<int>;
+    final timeDays    = results[4] as List<int>;
+    final places      = results[5] as List<Place>;
     final currentPlace = places.where((p) => p.id == _placeId).firstOrNull;
 
     if (mounted) {
       setState(() {
         _triggers    = triggers.toSet();
         _triggerTime = triggerTime;
-        _triggerDays = triggerDays;
+        _daysFor = {
+          'depart': departDays,
+          'enter':  enterDays,
+          'time':   timeDays,
+        };
         _allPlaces   = places;
         _placeName   = currentPlace?.name ?? '장소';
         _isLoading   = false;
@@ -60,7 +80,6 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
   Future<void> _toggleTrigger(String val) async {
     final updated = Set<String>.from(_triggers);
     if (updated.contains(val)) {
-      // 마지막 하나는 해제 불가
       if (updated.length == 1) return;
       updated.remove(val);
     } else {
@@ -89,25 +108,27 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
     }
   }
 
-  Future<void> _toggleDay(int day) async {
-    final updated = List<int>.from(_triggerDays);
-    if (updated.contains(day)) {
-      updated.remove(day);
+  Future<void> _toggleDayFor(String trigger, int day) async {
+    final current = List<int>.from(_daysFor[trigger] ?? [1, 2, 3, 4, 5]);
+    if (current.contains(day)) {
+      current.remove(day);
     } else {
-      updated.add(day);
-      updated.sort();
+      current.add(day);
+      current.sort();
     }
-    await PrefsService.setChecklistTriggerDays(_placeId, updated);
-    setState(() => _triggerDays = updated);
+    await PrefsService.setChecklistTriggerDaysFor(_placeId, trigger, current);
+    setState(() => _daysFor[trigger] = current);
   }
 
-  bool get _isWeekdayOnly =>
-      !_triggerDays.contains(0) && !_triggerDays.contains(6);
+  bool _isWeekdayOnlyFor(String trigger) {
+    final days = _daysFor[trigger] ?? [];
+    return !days.contains(0) && !days.contains(6);
+  }
 
-  Future<void> _toggleWeekdayOnly(bool val) async {
+  Future<void> _toggleWeekdayOnlyFor(String trigger, bool val) async {
     final updated = val ? [1, 2, 3, 4, 5] : [0, 1, 2, 3, 4, 5, 6];
-    await PrefsService.setChecklistTriggerDays(_placeId, updated);
-    setState(() => _triggerDays = updated);
+    await PrefsService.setChecklistTriggerDaysFor(_placeId, trigger, updated);
+    setState(() => _daysFor[trigger] = updated);
   }
 
   Future<void> _pickPlace() async {
@@ -158,7 +179,12 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
       if (_triggerTime != null) {
         await PrefsService.setChecklistTriggerTime(picked, _triggerTime!);
       }
-      await PrefsService.setChecklistTriggerDays(picked, _triggerDays);
+      for (final trigger in ['depart', 'enter', 'time']) {
+        final days = _daysFor[trigger];
+        if (days != null) {
+          await PrefsService.setChecklistTriggerDaysFor(picked, trigger, days);
+        }
+      }
       setState(() {
         _placeId   = picked;
         _placeName = place.name;
@@ -197,7 +223,6 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── 알림 시점 ────────────────────────────────────────
                 _sectionHeader('알림 시점'),
                 Card(
                   child: Column(
@@ -213,6 +238,10 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
                             borderRadius: BorderRadius.circular(4)),
                         controlAffinity: ListTileControlAffinity.leading,
                       ),
+                      if (_triggers.contains('depart')) ...[
+                        const Divider(height: 1),
+                        _buildDayPicker('depart'),
+                      ],
                       const Divider(height: 1),
                       // ── 집 들어올 때 ────────────────────────────────
                       CheckboxListTile(
@@ -225,6 +254,10 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
                             borderRadius: BorderRadius.circular(4)),
                         controlAffinity: ListTileControlAffinity.leading,
                       ),
+                      if (_triggers.contains('enter')) ...[
+                        const Divider(height: 1),
+                        _buildDayPicker('enter'),
+                      ],
                       const Divider(height: 1),
                       // ── 특정 시간 ────────────────────────────────────
                       CheckboxListTile(
@@ -264,76 +297,13 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
                             borderRadius: BorderRadius.circular(4)),
                         controlAffinity: ListTileControlAffinity.leading,
                       ),
-                      // ── 요일 선택 (특정 시간 선택 시에만) ──────────────
                       if (hasTime) ...[
                         const Divider(height: 1),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                '요일 선택',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF64748B),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  for (int i = 0; i < 7; i++)
-                                    Padding(
-                                      padding:
-                                          EdgeInsets.only(right: i < 6 ? 6 : 0),
-                                      child: _DayChip(
-                                        label: _dayLabels[i],
-                                        selected: _triggerDays.contains(i),
-                                        onTap: () => _toggleDay(i),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              GestureDetector(
-                                onTap: () =>
-                                    _toggleWeekdayOnly(!_isWeekdayOnly),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: Checkbox(
-                                        value: _isWeekdayOnly,
-                                        onChanged: (v) =>
-                                            _toggleWeekdayOnly(v ?? false),
-                                        activeColor: NeomeDesignSystem.primary,
-                                        materialTapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                        visualDensity: VisualDensity.compact,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    const Text(
-                                      '영업일 제외',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFF64748B),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        _buildDayPicker('time'),
                       ],
                     ],
                   ),
                 ),
-                // ── 안내 메시지 ──────────────────────────────────────
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -365,6 +335,70 @@ class _ChecklistSettingsScreenState extends State<ChecklistSettingsScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// 트리거 아래 인라인으로 보여주는 요일 선택 패널
+  Widget _buildDayPicker(String trigger) {
+    final days = _daysFor[trigger] ?? [1, 2, 3, 4, 5];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '요일 선택',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              for (int i = 0; i < 7; i++)
+                Padding(
+                  padding: EdgeInsets.only(right: i < 6 ? 6 : 0),
+                  child: _DayChip(
+                    label: _dayLabels[i],
+                    selected: days.contains(i),
+                    onTap: () => _toggleDayFor(trigger, i),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () => _toggleWeekdayOnlyFor(trigger, !_isWeekdayOnlyFor(trigger)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: Checkbox(
+                    value: _isWeekdayOnlyFor(trigger),
+                    onChanged: (v) =>
+                        _toggleWeekdayOnlyFor(trigger, v ?? false),
+                    activeColor: NeomeDesignSystem.primary,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  '평일만',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -406,7 +406,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go('/home');
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text('설정', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -796,7 +801,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       ),
-    );
+    )); // PopScope
   }
 
   Widget _buildSectionHeader(String title) {

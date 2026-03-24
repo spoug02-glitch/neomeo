@@ -24,7 +24,22 @@
       "Bash(find /mnt/c/Users/fkfkf/Documents/neome_app/android -name \"*.gradle\" -o -name \"*.gradle.kts\" 2>/dev/null | head -20)",
       "Bash(find /mnt/c/Users/fkfkf -path \"*/geofencing_api*\" -name \"*.dart\" 2>/dev/null | head -10)",
       "Bash(git rm:*)",
-      "Bash(find /mnt/c/Users/fkfkf/AppData/Local/Pub/Cache/hosted/pub.dev/ -path \"*flutter_foreground_task*\" -name \"*.kt\" 2>/dev/null | head -10)"
+      "Bash(find /mnt/c/Users/fkfkf/AppData/Local/Pub/Cache/hosted/pub.dev/ -path \"*flutter_foreground_task*\" -name \"*.kt\" 2>/dev/null | head -10)",
+      "Bash(claude mcp:*)",
+      "Bash(bun --version)",
+      "Bash(find /mnt/c/Users/fkfkf/AppData/Roaming/ -maxdepth 2 -name *mcp* -o -name *MCP*)",
+      "Bash(find /mnt/c/Users/fkfkf/Documents/neome_app -name *follow* -o -name *Follow* -o -name *rule* -o -name *Rule*)",
+      "Bash(find /mnt/c/Users/fkfkf/Documents -name *.dart -o -name *.jsx -o -name *.tsx -o -name *.vue -o -name *.js -o -name *.ts)",
+      "Bash(node -e \":*)",
+      "Bash(node:*)",
+      "Bash(sed -n '1415,1422p' /mnt/c/Users/fkfkf/Documents/MAPlans/raw.jsx)",
+      "Bash(sed -n '1725,1732p' /mnt/c/Users/fkfkf/Documents/MAPlans/raw.jsx)",
+      "Bash(find /mnt/c/Users/fkfkf/Documents/neome_app -name *.png -o -name *.jpg -o -name *.jpeg -o -name *.webp)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5174/onboard1.jpg)",
+      "Bash(curl -s http://localhost:5174/)",
+      "Bash(pkill -f \"vite\")",
+      "Bash(gh auth:*)",
+      "Bash(find /mnt/c/Users/fkfkf/Documents -name *.dart)"
     ]
   }
 }

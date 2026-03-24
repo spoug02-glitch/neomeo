@@ -168,7 +168,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: Column(
@@ -207,20 +209,24 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       )
-                    else if (_currentWeather != null)
+                    else if (_currentWeather != null) ...[
                       _WeatherCard(
                         temp: (_currentWeather!['main']['temp'] as num).toDouble(),
                         windInfo: _windInfo,
                         iconCode: _currentWeather!['weather'][0]['icon'],
-                        clothingRec: _clothingRec,
-                        umbrellaRec: _umbrellaRec,
-                        maskRec: _maskRec,
                         precipPct: _precipPct,
                         isSnow: _isSnow,
                         aqiValue: _aqiValue,
                       ),
-                    if (!_isLoadingWeather && _currentWeather != null)
+                      const SizedBox(height: 12),
+                      // ── 오늘의 추천 카드 ─────────────────────
+                      _TodayRecommendCard(
+                        clothingRec: _clothingRec,
+                        umbrellaRec: _umbrellaRec,
+                        maskRec: _maskRec,
+                      ),
                       const SizedBox(height: 16),
+                    ],
 
                     // ── 집 위치 설정 버튼 (미설정 시) ──────────────
                     if (!_homeSet) ...[
@@ -266,7 +272,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-    );
+    )); // PopScope
   }
 }
 
@@ -276,9 +282,6 @@ class _WeatherCard extends StatelessWidget {
   final double temp;
   final String windInfo;
   final String iconCode;
-  final String clothingRec;
-  final bool umbrellaRec;
-  final bool maskRec;
   final int precipPct;
   final bool isSnow;
   final int aqiValue;
@@ -287,9 +290,6 @@ class _WeatherCard extends StatelessWidget {
     required this.temp,
     required this.windInfo,
     required this.iconCode,
-    required this.clothingRec,
-    required this.umbrellaRec,
-    required this.maskRec,
     required this.precipPct,
     required this.isSnow,
     required this.aqiValue,
@@ -437,58 +437,6 @@ class _WeatherCard extends StatelessWidget {
               ),
             ),
 
-            // ── 옷차림 추천 ──────────────────────────────────
-            if (clothingRec.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: NeomeDesignSystem.primary.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.checkroom,
-                        size: 15, color: NeomeDesignSystem.primary),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        '오늘의 추천 옷차림: $clothingRec',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF475569),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            // ── 준비물 추천 ───────────────────────────────────
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.backpack_outlined,
-                    size: 15, color: NeomeDesignSystem.primary),
-                const SizedBox(width: 6),
-                const Text(
-                  '준비물',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF475569),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                if (umbrellaRec) _chip('☂', '우산'),
-                if (umbrellaRec && maskRec) const SizedBox(width: 6),
-                if (maskRec) _chip('😷', '마스크'),
-                if (!umbrellaRec && !maskRec) _chip('😊', '웃음'),
-              ],
-            ),
           ],
         ),
       ),
@@ -509,23 +457,80 @@ class _WeatherCard extends StatelessWidget {
       default:    return '🌡️';
     }
   }
+}
 
-  Widget _chip(String emoji, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: NeomeDesignSystem.primary.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: NeomeDesignSystem.primary.withOpacity(0.2)),
-      ),
-      child: Text(
-        '$emoji $label',
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: NeomeDesignSystem.primary,
+// ── TodayRecommendCard ────────────────────────────────────────
+
+class _TodayRecommendCard extends StatelessWidget {
+  final String clothingRec;
+  final bool umbrellaRec;
+  final bool maskRec;
+
+  const _TodayRecommendCard({
+    required this.clothingRec,
+    required this.umbrellaRec,
+    required this.maskRec,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final itemsText = umbrellaRec && maskRec
+        ? '☂ 우산, 😷 마스크'
+        : umbrellaRec
+            ? '☂ 우산'
+            : maskRec
+                ? '😷 마스크'
+                : '😊 웃음';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '오늘의 추천',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _row(Icons.checkroom_outlined, '옷차림', clothingRec.isNotEmpty ? clothingRec : '-'),
+            const SizedBox(height: 8),
+            _row(Icons.backpack_outlined, '준비물', itemsText),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _row(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 15, color: NeomeDesignSystem.primary),
+        const SizedBox(width: 6),
+        Text(
+          '$label :',
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF475569),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF64748B),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
