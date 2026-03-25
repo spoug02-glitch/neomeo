@@ -141,6 +141,7 @@
     }
     .app-title { font-size: 26px; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px; }
     .app-subtitle { font-size: 13px; color: var(--text-sub); margin-top: 6px; }
+    .app-greeting { font-size: 12px; color: #CBD5E1; margin-top: 4px; }
 
     /* ── Weather Card (new layout) ── */
     .weather-card { padding: 16px; margin-top: 18px; }
@@ -214,49 +215,30 @@
     .today-rec-label { font-size: 13px; font-weight: 600; color: #475569; white-space: nowrap; }
     .today-rec-val { font-size: 13px; color: #64748B; }
 
-    /* ── Location button (home not set) ── */
-    .location-btn-wrap { margin-top: 16px; }
-    .location-btn {
-      width: 100%; height: 50px;
-      background: var(--primary);
-      color: white;
-      font-size: 15px; font-weight: 700;
-      border: none; border-radius: 14px;
+    /* ── Home bottom CTA area ── */
+    .home-cta-area { padding: 8px 20px 12px; display: flex; flex-direction: column; gap: 8px; }
+    /* 집 위치 미설정 시 회색 보조 버튼 — 주목도 낮게 */
+    .home-loc-btn {
+      width: 100%; height: 48px;
+      background: white; color: #94A3B8;
+      font-size: 14px; font-weight: 600;
+      border: 1.5px solid #E2E8F0; border-radius: 14px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: background 0.15s;
+    }
+    .home-loc-btn:hover { background: #F8FAFC; }
+    /* 메인 CTA — 항상 노출, 단 하나의 주요 액션 */
+    .home-main-cta {
+      width: 100%; height: 56px;
+      background: var(--primary); color: white;
+      font-size: 16px; font-weight: 700;
+      border: none; border-radius: 16px;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center; gap: 8px;
       transition: opacity 0.2s;
     }
-    .location-btn:hover { opacity: 0.9; }
-    .location-hint { font-size: 12px; color: var(--text-hint); text-align: center; margin-top: 8px; }
-
-    /* ── Outing Checklist Card ── */
-    .outing-checklist-card {
-      margin-top: 16px;
-      border: 1.5px solid #E2E8F0;
-      border-radius: 20px;
-      background: white;
-      padding: 24px;
-      cursor: pointer;
-      position: relative;
-      transition: border-color 0.15s, box-shadow 0.15s;
-      display: flex; align-items: center; gap: 16px;
-    }
-    .outing-checklist-card:hover { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); }
-    .outing-checklist-card:active { transform: scale(0.99); }
-    .outing-card-emoji { font-size: 36px; }
-    .outing-card-text { flex: 1; }
-    .outing-card-title { font-size: 18px; font-weight: 800; color: #1E293B; }
-    .outing-card-sub { font-size: 13px; color: #94A3B8; margin-top: 4px; }
-    .outing-card-arrow { font-size: 20px; color: #CBD5E1; }
-    .outing-card-settings {
-      position: absolute; top: 8px; right: 8px;
-      width: 34px; height: 34px;
-      display: flex; align-items: center; justify-content: center;
-      border-radius: 20px; color: #CBD5E1;
-      font-size: 16px; cursor: pointer;
-      background: none; border: none;
-    }
-    .outing-card-settings:hover { color: #94A3B8; background: #F8FAFC; }
+    .home-main-cta:hover { opacity: 0.9; }
 
     /* ── CHECKLIST SCREEN ── */
     .checklist-appbar {
@@ -382,7 +364,8 @@
       cursor: pointer;
       transition: opacity 0.2s, transform 0.1s;
     }
-    .depart-btn:disabled { background: var(--border); cursor: not-allowed; }
+    .depart-btn:disabled { background: var(--border); cursor: not-allowed; box-shadow: none; }
+    .depart-btn:not(:disabled) { box-shadow: 0 6px 18px rgba(255,69,0,0.35); }
     .depart-btn:not(:disabled):hover { opacity: 0.9; }
     .depart-btn:not(:disabled):active { transform: scale(0.98); }
 
@@ -550,9 +533,11 @@
           <div class="window-logo"></div>
           <div class="app-title">너머</div>
           <div class="app-subtitle">외출 전, 조용히 안심을 더해요</div>
+          <!-- 시간대별 미세 인사 — 배려하는 동반자 느낌 -->
+          <div class="app-greeting" id="time-greeting"></div>
         </div>
 
-        <!-- Weather Card (new layout) -->
+        <!-- Weather Card -->
         <div class="card weather-card">
           <div class="weather-main-row">
             <div class="weather-left">
@@ -590,26 +575,19 @@
             <span class="today-rec-val">☂ 우산</span>
           </div>
         </div>
+        <!-- 체크리스트 카드 제거 — CTA 버튼으로 진입점 단일화 -->
+      </div>
 
-        <!-- 집 위치 설정 버튼 (미설정 시) -->
-        <div id="location-btn-section" class="location-btn-wrap">
-          <button class="location-btn" onclick="setHomeLocation()">
-            🏠 현재 위치를 집으로 설정
-          </button>
-          <div class="location-hint">집을 나설 때 자동으로 알려드려요</div>
-        </div>
-
-        <!-- 외출할 때 체크리스트 카드 -->
-        <div class="outing-checklist-card" onclick="goChecklist('외출')">
-          <div class="outing-card-emoji">🎒</div>
-          <div class="outing-card-text">
-            <div class="outing-card-title">외출할 때</div>
-            <div class="outing-card-sub">체크리스트 확인하기</div>
-          </div>
-          <div class="outing-card-arrow">›</div>
-          <button class="outing-card-settings" onclick="event.stopPropagation(); showToast('체크리스트 설정 화면으로 이동')">⚙</button>
-        </div>
-
+      <!-- 하단 고정 CTA 영역 — 탭바 바로 위 -->
+      <div class="home-cta-area">
+        <!-- 집 위치 미설정 시 회색 보조 버튼 -->
+        <button class="home-loc-btn" id="home-loc-btn" onclick="setHomeLocation()">
+          🏠 현재 위치를 집으로 설정
+        </button>
+        <!-- 메인 CTA — 항상 노출 -->
+        <button class="home-main-cta" onclick="goChecklist('외출')">
+          ✅ 외출 준비 시작하기
+        </button>
       </div>
       <div class="bottom-nav">
         <div class="nav-item active" onclick="goScreen('home')"><span class="nav-icon">🏠</span>홈</div>
@@ -744,13 +722,13 @@
           </div>
         </div>
 
-        <!-- 알림 방해금지 -->
-        <div class="section-header">알림 방해금지</div>
+        <!-- 알림 및 환경 설정 -->
+        <div class="section-header">알림 및 환경 설정</div>
         <div class="card" style="margin-bottom:24px">
           <div class="settings-item">
             <div class="settings-item-text">
               <div class="settings-item-title">방해금지 모드</div>
-              <div class="settings-item-sub">설정한 시간대에는 알림을 보내지 않아요</div>
+              <div class="settings-item-sub">취침 중이나 집중이 필요한 시간대엔 알림을 보내지 않아요</div>
             </div>
             <label class="toggle-switch">
               <input type="checkbox" id="dnd-toggle" onchange="toggleDnd(this)" />
@@ -769,13 +747,13 @@
           </div>
         </div>
 
-        <!-- 자동 연동 설정 -->
-        <div class="section-header">자동 연동 설정 (OpenWeatherMap)</div>
+        <!-- 추천 기준 설정 -->
+        <div class="section-header">추천 기준 설정</div>
         <div class="card" style="margin-bottom:24px">
           <div class="settings-item">
             <div class="settings-item-text">
-              <div class="settings-item-title">날씨 연동 (우산)</div>
-              <div class="settings-item-sub">비나 눈이 오면 체크리스트에 우산을 추가해요</div>
+              <div class="settings-item-title">날씨 연동</div>
+              <div class="settings-item-sub">비가 올 것 같은 날, 체크리스트에 자동으로 우산을 추가해요</div>
             </div>
             <label class="toggle-switch">
               <input type="checkbox" checked />
@@ -784,8 +762,8 @@
           </div>
           <div class="settings-item">
             <div class="settings-item-text">
-              <div class="settings-item-title">미세먼지 연동 (마스크)</div>
-              <div class="settings-item-sub">미세먼지 농도가 높으면 마스크를 추가해요</div>
+              <div class="settings-item-title">미세먼지 연동</div>
+              <div class="settings-item-sub">미세먼지가 나쁜 날, 마스크를 빠뜨리지 않도록 알려줘요</div>
             </div>
             <label class="toggle-switch">
               <input type="checkbox" />
@@ -794,9 +772,11 @@
           </div>
           <div class="slider-wrap">
             <div class="slider-row">
-              <span class="slider-title">온도 민감도 설정</span>
+              <span class="slider-title">온도 민감도</span>
               <span class="slider-val" id="sensitivity-val">0.0°C</span>
             </div>
+            <!-- 설정의 영향을 한 줄로 명확히 설명 -->
+            <div style="font-size:12px; color:#94A3B8; margin-bottom:8px">내 체질에 맞게 추천 옷차림을 조절해요</div>
             <input type="range" min="-5" max="5" step="1" value="0" oninput="updateSensitivity(this.value)" />
             <div class="slider-hint"><span>추위를 많이 탐</span><span>보통</span><span>더위를 많이 탐</span></div>
           </div>
@@ -881,9 +861,9 @@
     <div class="info-card">
       <h3>📱 화면 구성</h3>
       <ul>
-        <li><b>홈</b> — 날씨 카드 (강수확률+미세먼지) + 외출 체크리스트 카드</li>
-        <li><b>체크리스트</b> — 추천 준비물 / 준비물 / 행동 체크 + 진행 바</li>
-        <li><b>설정</b> — 권한·DND·날씨 API·장소·지오펜스 로그</li>
+        <li><b>홈</b> — 날씨 카드 + 시간대별 인사 + 하단 고정 CTA "외출 준비 시작하기"</li>
+        <li><b>체크리스트</b> — 감성 진척도 텍스트 + 완료 시 그림자 CTA 활성화</li>
+        <li><b>설정</b> — 추천 기준 설정 / 알림 및 환경 설정 / 장소 관리</li>
         <li><b>달력</b> — 추후 지원 예정</li>
       </ul>
     </div>
@@ -954,12 +934,24 @@
     goScreen('checklist');
   }
 
-  // ── Set Home Location ──
+  // ── 시간대별 인사 텍스트 ──
+  function timeGreeting() {
+    const h = new Date().getHours();
+    if (h < 7)  return '이른 아침도 함께할게요 🌙';
+    if (h < 12) return '오늘 하루도 잘 준비해봐요 ☀️';
+    if (h < 18) return '외출 전 잠깐, 함께 확인해봐요';
+    return '저녁 외출도 꼼꼼하게 챙겨봐요 🌙';
+  }
+  document.getElementById('time-greeting').textContent = timeGreeting();
+
+  // ── 집 위치 설정 — 버튼 설정 후 숨김 ──
   function setHomeLocation() {
     showToast('기준 위치가 설정되었습니다. 이 위치를 벗어나면 알려드릴게요.');
     homeSet = true;
-    document.getElementById('location-btn-section').style.display = 'none';
+    document.getElementById('home-loc-btn').style.display = 'none';
   }
+  // 이미 설정된 상태라면 보조 버튼 숨김
+  if (homeSet) document.getElementById('home-loc-btn').style.display = 'none';
 
   // ── Permissions Expand ──
   function togglePermissions() {
@@ -1002,7 +994,7 @@
     // Check if all done
     const all = [...recommended, ...supplies, ...actions];
     const allChecked = all.length > 0 && all.every(i => i.checked);
-    if (allChecked) showToast('오늘 준비 끝! 👍');
+    if (allChecked) showToast('완벽해요! 이제 나가셔도 좋아요. 🎉');
   }
 
   function getList(prefix) {
@@ -1053,17 +1045,36 @@
     }
   }
 
+  // 완료율에 따른 감성 텍스트 — 숫자 대신 상황에 맞는 말로 인지 부하 감소
+  function progressText(checked, total) {
+    if (total === 0) return '천천히 준비를 시작해볼까요?';
+    const pct = checked / total;
+    if (pct === 0)  return '천천히 준비를 시작해볼까요?';
+    if (pct < 0.3)  return '천천히 준비를 시작해볼까요?';
+    if (pct < 0.8)  return '아직 ' + (total - checked) + '개 남았어요.';
+    if (pct < 1.0)  return '거의 다 챙겼어요!';
+    return '완벽해요! 이제 나가셔도 좋아요.';
+  }
+
   function updateProgress() {
     const all = [...recommended, ...supplies, ...actions];
     const checked = all.filter(i => i.checked).length;
     const total = all.length;
     const pct = total === 0 ? 0 : (checked / total) * 100;
+    const allDone = checked === total && total > 0;
 
     document.getElementById('progress-fill').style.width = pct + '%';
-    document.getElementById('progress-text').textContent = checked + ' / ' + total;
 
+    // 감성 텍스트 + 완료 시 primary 색상
+    const progressEl = document.getElementById('progress-text');
+    progressEl.textContent = progressText(checked, total);
+    progressEl.style.color = allDone ? 'var(--primary)' : '';
+
+    // 출발 버튼 — checked == total 조건 엄격 적용
     const btn = document.getElementById('depart-btn');
-    btn.disabled = !(checked === total && total > 0);
+    btn.disabled = !allDone;
+    // 완료 시 버튼 텍스트도 축하 표현으로 전환
+    btn.textContent = allDone ? '출발해요 🎉' : '출발해요';
   }
 
   function depart() {
