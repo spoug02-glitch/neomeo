@@ -129,8 +129,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // ── 위치 가져오기 ──────────────────────────────────────────────────────────
 
   Future<void> _fetchCurrentLocation() async {
-    // 폼 안에서 호출 시 → 화면 전환 없이 버튼만 로딩 상태로
-    final inForm = _locationMode == _LocationMode.form;
+    // initial / form 모두 폼 내 로딩 처리 — initial에서도 화면 전환 없이 버튼만 로딩
+    final inForm = _locationMode == _LocationMode.form ||
+        _locationMode == _LocationMode.initial;
     if (inForm) {
       setState(() => _isFetchingAddress = true);
     } else {
@@ -410,28 +411,93 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildLocationInitial() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Text('🏠', style: TextStyle(fontSize: 60)),
-        const SizedBox(height: 24),
-        Text('집 위치를 설정해주세요', style: NeomeDesignSystem.heading1, textAlign: TextAlign.center),
-        const SizedBox(height: 16),
-        Text(
-          '외출 감지를 위해 집 위치를 알아야 해요.',
-          textAlign: TextAlign.center,
-          style: NeomeDesignSystem.body1.copyWith(
-            color: NeomeDesignSystem.textSub,
-            fontWeight: FontWeight.normal,
+    // 별도 "직접 설정하기" 전환 없이 폼을 바로 노출 —
+    // 사용자가 첫 화면에서 바로 주소를 입력하거나 GPS로 자동 인식할 수 있음
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
+          Center(
+            child: Column(
+              children: [
+                const Text('🏠', style: TextStyle(fontSize: 52)),
+                const SizedBox(height: 16),
+                Text('집 위치를 설정해주세요',
+                    style: NeomeDesignSystem.heading1, textAlign: TextAlign.center),
+                const SizedBox(height: 6),
+                // 두 버튼(GPS·직접입력)의 목적을 한 줄로 사전 안내
+                const Text(
+                  '외출 감지를 위해 집 위치를 알아야 해요.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                ),
+              ],
+            ),
           ),
-        ),
-        const Spacer(),
-        _primaryButton('현재 위치 확인', _fetchCurrentLocation, icon: Icons.my_location),
-        const SizedBox(height: 12),
-        _outlinedButton('직접 설정하기', _useManualInput),
-        const SizedBox(height: 12),
-        _textButton('건너뛰기', _skipLocation),
-      ],
+          const SizedBox(height: 28),
+
+          // ── 주소 입력 카드 ──────────────────────────────────────
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE5E8EB)),
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _textField(
+                  controller: _nameCtrl,
+                  focusNode: _nameFocusNode,
+                  label: '장소 이름',
+                  hint: '예: 집, 우리집',
+                ),
+                const SizedBox(height: 12),
+                _textField(
+                  controller: _addressCtrl,
+                  label: '주소',
+                  hint: '도로명 또는 지번 주소',
+                ),
+                const SizedBox(height: 12),
+                _textField(
+                  controller: _detailedAddressCtrl,
+                  label: '상세 주소 (선택)',
+                  hint: '동/호수, 층수 등',
+                ),
+                const SizedBox(height: 14),
+                // GPS 자동 인식 버튼 — 주소 필드를 자동으로 채워줌
+                OutlinedButton.icon(
+                  onPressed: _isFetchingAddress ? null : _fetchCurrentLocation,
+                  icon: _isFetchingAddress
+                      ? const SizedBox(
+                          width: 16, height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: NeomeDesignSystem.primary),
+                        )
+                      : const Icon(Icons.my_location, size: 18),
+                  label: Text(_isFetchingAddress ? '위치 확인 중...' : '현재 위치 자동 인식'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48),
+                    foregroundColor: NeomeDesignSystem.primary,
+                    side: BorderSide(color: NeomeDesignSystem.primary.withOpacity(0.5)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+          _primaryButton('등록하고 시작하기',
+              (_isSaving || _isFetchingAddress) ? null : _confirmAndSave,
+              loading: _isSaving),
+          const SizedBox(height: 12),
+          _textButton('건너뛰기', (_isSaving || _isFetchingAddress) ? null : _skipLocation),
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 

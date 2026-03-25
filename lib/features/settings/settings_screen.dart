@@ -425,6 +425,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 권한 섹션은 접어둔 상태로 시작 — 설정 진입 시 핵심 내용에 먼저 집중하도록
             _buildSectionHeader('권한 관리'),
             Card(
               child: Column(
@@ -507,50 +508,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            _buildSectionHeader('알림 방해금지'),
+            // ── 추천 기준 설정 ──────────────────────────────────
+            // 사용자의 체질과 환경에 맞춰 준비물 추천을 개인화하는 섹션
+            _buildSectionHeader('추천 기준 설정'),
             Card(
               child: Column(
                 children: [
                   SwitchListTile(
-                    title: const Text('방해금지 모드'),
-                    subtitle: const Text('설정한 시간대에는 알림을 보내지 않아요'),
-                    value: _dndEnabled,
-                    onChanged: _toggleDnd,
-                  ),
-                  if (_dndEnabled) ...[
-                    const Divider(height: 1),
-                    ListTile(
-                      title: const Text('시작 시간'),
-                      trailing: Text(_dndStart, style: const TextStyle(fontWeight: FontWeight.bold, color: NeomeDesignSystem.primary)),
-                      onTap: () => _pickDndTime(true),
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      title: const Text('종료 시간'),
-                      trailing: Text(_dndEnd, style: const TextStyle(fontWeight: FontWeight.bold, color: NeomeDesignSystem.primary)),
-                      onTap: () => _pickDndTime(false),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            _buildSectionHeader('자동 연동 설정 (OpenWeatherMap)'),
-            Card(
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    title: const Text('날씨 연동 (우산)'),
-                    subtitle: const Text('비나 눈이 오면 체크리스트에 우산을 추가해요'),
+                    title: const Text('날씨 연동'),
+                    // 기능의 결과를 구체적으로 설명해 설정의 의미를 명확히
+                    subtitle: const Text('비가 올 것 같은 날, 체크리스트에 자동으로 우산을 추가해요'),
                     value: _weatherEnabled,
                     onChanged: _toggleWeather,
+                    activeColor: NeomeDesignSystem.primary,
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
-                    title: const Text('미세먼지 연동 (마스크)'),
-                    subtitle: const Text('미세먼지 농도가 높으면 마스크를 추가해요'),
+                    title: const Text('미세먼지 연동'),
+                    // 설정이 미치는 영향을 사용자 관점에서 서술
+                    subtitle: const Text('미세먼지가 나쁜 날, 마스크를 빠뜨리지 않도록 알려줘요'),
                     value: _dustEnabled,
                     onChanged: _toggleDust,
+                    activeColor: NeomeDesignSystem.primary,
                   ),
                   const Divider(height: 1),
                   Padding(
@@ -561,12 +540,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('온도 민감도 설정', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                            const Text('온도 민감도', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                             Text(
                               _tempSensitivity > 0 ? '+${_tempSensitivity.toStringAsFixed(1)}°C' : '${_tempSensitivity.toStringAsFixed(1)}°C',
                               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: NeomeDesignSystem.primary),
                             ),
                           ],
+                        ),
+                        // 설정의 영향을 한 줄로 명확히 설명
+                        const SizedBox(height: 4),
+                        const Text(
+                          '내 체질에 맞게 추천 옷차림을 조절해요',
+                          style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                         ),
                         const SizedBox(height: 8),
                         Slider(
@@ -589,6 +574,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                   ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            // ── 알림 및 환경 설정 ────────────────────────────────
+            // 알림 시점·방해금지 등 앱의 행동 방식을 제어하는 섹션
+            _buildSectionHeader('알림 및 환경 설정'),
+            Card(
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: const Text('방해금지 모드'),
+                    // 어떤 상황에 유용한지를 구체적으로 서술
+                    subtitle: const Text('취침 중이나 집중이 필요한 시간대엔 알림을 보내지 않아요'),
+                    value: _dndEnabled,
+                    onChanged: _toggleDnd,
+                    activeColor: NeomeDesignSystem.primary,
+                  ),
+                  if (_dndEnabled) ...[
+                    const Divider(height: 1),
+                    ListTile(
+                      title: const Text('시작 시간'),
+                      trailing: Text(_dndStart, style: const TextStyle(fontWeight: FontWeight.bold, color: NeomeDesignSystem.primary)),
+                      onTap: () => _pickDndTime(true),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      title: const Text('종료 시간'),
+                      trailing: Text(_dndEnd, style: const TextStyle(fontWeight: FontWeight.bold, color: NeomeDesignSystem.primary)),
+                      onTap: () => _pickDndTime(false),
+                    ),
+                  ],
                 ],
               ),
             ),

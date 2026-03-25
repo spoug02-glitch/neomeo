@@ -166,6 +166,61 @@ class _HomeScreenState extends State<HomeScreen> {
     context.go('/checklist?type=${Uri.encodeComponent('외출')}');
   }
 
+  // 시간대별 미세 인사 — 앱의 배려하는 동반자 톤앤매너 강화
+  String _timeGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 7)  return '이른 아침도 함께할게요 🌙';
+    if (hour < 12) return '오늘 하루도 잘 준비해봐요 ☀️';
+    if (hour < 18) return '외출 전 잠깐, 함께 확인해봐요';
+    return '저녁 외출도 꼼꼼하게 챙겨봐요 🌙';
+  }
+
+  // 하단 고정 CTA 영역 —
+  // 집 위치 미설정 시 회색 보조 버튼(방해 없는 존재감),
+  // 메인 CTA는 항상 노출해 단 하나의 행동으로 시선을 유도
+  Widget _buildBottomCTA() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+      child: Column(
+        children: [
+          if (!_homeSet) ...[
+            // 회색 OutlinedButton — 필수가 아닌 보조 액션임을 시각적으로 전달
+            OutlinedButton.icon(
+              onPressed: _isSavingLocation ? null : _saveCurrentLocationAsHome,
+              icon: _isSavingLocation
+                  ? const SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF94A3B8)),
+                    )
+                  : const Icon(Icons.home_outlined, size: 18),
+              label: Text(_isSavingLocation ? '위치 확인 중...' : '현재 위치를 집으로 설정'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+                foregroundColor: const Color(0xFF94A3B8),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          // 메인 CTA — 화면의 시각적 무게 중심을 하단으로 유도
+          FilledButton.icon(
+            onPressed: _onHomeOutingTap,
+            icon: const Icon(Icons.checklist_rtl_outlined, size: 20),
+            label: const Text('외출 준비 시작하기'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(double.infinity, 56),
+              backgroundColor: NeomeDesignSystem.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -196,6 +251,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           '외출 전, 조용히 안심을 더해요',
                           textAlign: TextAlign.center,
                           style: NeomeDesignSystem.body2,
+                        ),
+                        const SizedBox(height: 4),
+                        // 시간대별 미세 인사로 배려하는 동반자 느낌 부여
+                        Text(
+                          _timeGreeting(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFFCBD5E1)),
                         ),
                       ],
                     ),
@@ -228,46 +290,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 16),
                     ],
 
-                    // ── 집 위치 설정 버튼 (미설정 시) ──────────────
-                    if (!_homeSet) ...[
-                      FilledButton.icon(
-                        onPressed: _isSavingLocation ? null : _saveCurrentLocationAsHome,
-                        icon: _isSavingLocation
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Icon(Icons.home_outlined),
-                        label: Text(_isSavingLocation ? '위치 확인 중...' : '현재 위치를 집으로 설정'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: NeomeDesignSystem.primary,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '집을 나설 때 자동으로 알려드려요',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                      ),
-                      const SizedBox(height: 20),
-                    ],
+                    // 집 위치 버튼·CTA는 하단 고정 영역(_buildBottomCTA)으로 이동
+                    // 스크롤 콘텐츠는 날씨·추천 정보에 집중
 
-                    // ── 집 외출할 때 체크리스트 카드 ────────────────
-                    _ChecklistCard(
-                      onTap: _onHomeOutingTap,
-                      emoji: '🎒',
-                      title: '외출할 때',
-                      subtitle: '체크리스트 확인하기',
-                      settingsPlaceId: _activePlaceId,
-                    ),
                   ],
                 ),
               ),
             ),
+            // 회색 보조 버튼(집 위치) + 메인 CTA — 탭바 바로 위 고정
+            _buildBottomCTA(),
             const NeomeBottomNav(currentIndex: 0),
           ],
         ),

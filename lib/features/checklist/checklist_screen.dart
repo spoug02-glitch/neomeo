@@ -231,6 +231,18 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
     super.dispose();
   }
 
+  // 완료율에 따라 사용자를 안심시키는 감성적 텍스트 반환
+  // 숫자(0/7)보다 상황에 맞는 말로 인지 부하를 줄이고 진행 의욕을 유지
+  String _progressText(int checked, int total) {
+    if (total == 0) return '천천히 준비를 시작해볼까요?';
+    final pct = checked / total;
+    if (pct == 0)   return '천천히 준비를 시작해볼까요?';
+    if (pct < 0.3)  return '천천히 준비를 시작해볼까요?';
+    if (pct < 0.8)  return '아직 ${total - checked}개 남았어요.';
+    if (pct < 1.0)  return '거의 다 챙겼어요!';
+    return '완벽해요! 이제 나가셔도 좋아요.';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_isReady) {
@@ -399,12 +411,15 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
                                 ),
                               ),
                               const SizedBox(width: 10),
+                              // 숫자 대신 감성 텍스트로 진척도 표현 — 완료 시 색상도 전환
                               Text(
-                                '$checkedCount / $total',
-                                style: const TextStyle(
+                                _progressText(checkedCount, total),
+                                style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF94A3B8),
+                                  color: checkedCount == total && total > 0
+                                      ? NeomeDesignSystem.primary
+                                      : const Color(0xFF94A3B8),
                                 ),
                               ),
                             ],
@@ -525,18 +540,36 @@ class _ChecklistScreenState extends ConsumerState<ChecklistScreen> {
             // ── Depart button ────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: FilledButton(
-                onPressed: checkedCount == total && total > 0
-                    ? () => context.go('/home')
-                    : null,
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 56),
-                  backgroundColor: NeomeDesignSystem.primary,
-                  disabledBackgroundColor: NeomeDesignSystem.border,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              child: AnimatedContainer(
+                // 모든 항목 완료 시 그림자가 나타나며 버튼 활성을 명확히 전달
+                duration: const Duration(milliseconds: 300),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: checkedCount == total && total > 0
+                      ? [
+                          BoxShadow(
+                            color: NeomeDesignSystem.primary.withOpacity(0.35),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
+                          ),
+                        ]
+                      : [],
                 ),
-                child: const Text('출발해요'),
+                child: FilledButton(
+                  // checked_items == total_items 조건 엄격 적용 — 부분 완료 시 절대 활성화 불가
+                  onPressed: checkedCount == total && total > 0
+                      ? () => context.go('/home')
+                      : null,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 56),
+                    backgroundColor: NeomeDesignSystem.primary,
+                    disabledBackgroundColor: NeomeDesignSystem.border,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                  // 완료 순간 텍스트도 축하 표현으로 전환
+                  child: Text(checkedCount == total && total > 0 ? '출발해요 🎉' : '출발해요'),
+                ),
               ),
             ),
           ],
