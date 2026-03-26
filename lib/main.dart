@@ -19,7 +19,8 @@ void main() async {
     await NotificationService().init(
       onTap: (payload) {
         if (payload.startsWith('neomeo://checklist')) {
-          const type = '등교';
+          final uri = Uri.tryParse(payload);
+          final type = uri?.queryParameters['type'] ?? '나갈때';
           appRouter.go('/checklist?type=${Uri.encodeComponent(type)}');
         } else if (payload == 'neomeo://outing-select') {
           appRouter.go('/outing-select');

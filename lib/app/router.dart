@@ -8,6 +8,7 @@ import '../features/settings/checklist_settings_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/calendar/calendar_screen.dart';
 import '../features/outing_select/outing_select_screen.dart';
+import '../features/checklist_list/checklist_list_screen.dart';
 import '../data/prefs_service.dart';
 
 final appRouter = GoRouter(
@@ -39,6 +40,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/outing-select',
       builder: (_, __) => const OutingSelectScreen(),
+    ),
+    GoRoute(
+      path: '/list',
+      builder: (_, __) => const ChecklistListScreen(),
     ),
     GoRoute(
       path: '/checklist-settings',

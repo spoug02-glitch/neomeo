@@ -219,7 +219,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   OutlinedButton.icon(
                     onPressed: () async {
                       try {
-                        final loc = await FlLocation.getLocation();
+                        // GPS 서비스 활성화 확인
+                        final svcEnabled = await FlLocation.isLocationServicesEnabled;
+                        if (!svcEnabled) {
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('위치 서비스(GPS)가 꺼져 있어요. 설정에서 켜주세요.')));
+                          }
+                          return;
+                        }
+                        var locPerm = await FlLocation.checkLocationPermission();
+                        if (locPerm == LocationPermission.denied ||
+                            locPerm == LocationPermission.deniedForever) {
+                          locPerm = await FlLocation.requestLocationPermission();
+                          if (locPerm == LocationPermission.denied ||
+                              locPerm == LocationPermission.deniedForever) {
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(content: Text('위치 권한이 필요해요. 설정에서 허용해주세요.')));
+                            }
+                            return;
+                          }
+                        }
+                        final loc = await FlLocation.getLocation(
+                          accuracy: LocationAccuracy.high,
+                          timeLimit: const Duration(seconds: 15),
+                        );
                         setDialogState(() {
                           latCtrl.text = loc.latitude.toStringAsFixed(6);
                           lonCtrl.text = loc.longitude.toStringAsFixed(6);
@@ -318,7 +343,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onPressed: isFetching ? null : () async {
                       setDialogState(() => isFetching = true);
                       try {
-                        final loc = await FlLocation.getLocation();
+                        // GPS 서비스 활성화 확인
+                        final svcEnabled = await FlLocation.isLocationServicesEnabled;
+                        if (!svcEnabled) {
+                          setDialogState(() => isFetching = false);
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              const SnackBar(content: Text('위치 서비스(GPS)가 꺼져 있어요. 설정에서 켜주세요.')));
+                          }
+                          return;
+                        }
+                        var locPerm = await FlLocation.checkLocationPermission();
+                        if (locPerm == LocationPermission.denied ||
+                            locPerm == LocationPermission.deniedForever) {
+                          locPerm = await FlLocation.requestLocationPermission();
+                          if (locPerm == LocationPermission.denied ||
+                              locPerm == LocationPermission.deniedForever) {
+                            setDialogState(() => isFetching = false);
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(content: Text('위치 권한이 필요해요. 설정에서 허용해주세요.')));
+                            }
+                            return;
+                          }
+                        }
+                        final loc = await FlLocation.getLocation(
+                          accuracy: LocationAccuracy.high,
+                          timeLimit: const Duration(seconds: 15),
+                        );
                         setDialogState(() {
                           latCtrl.text = loc.latitude.toStringAsFixed(6);
                           lonCtrl.text  = loc.longitude.toStringAsFixed(6);
@@ -419,7 +471,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         elevation: 0,
         automaticallyImplyLeading: false,
       ),
-      bottomNavigationBar: const NeomeBottomNav(currentIndex: 1),
+      bottomNavigationBar: const NeomeBottomNav(currentIndex: 3),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -622,8 +674,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   GestureDetector(
-                    onTap: _addPlace,
-                    child: const Icon(Icons.add_circle, color: NeomeDesignSystem.primary, size: 24),
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('장소 추가는 현재 준비 중이에요. 추후 지원될 예정이에요.'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    child: const Icon(Icons.add_circle, color: NeomeDesignSystem.textHint, size: 24),
                   ),
                 ],
               ),
@@ -669,38 +728,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             onPressed: () => _deletePlace(p.id),
                           ),
                         ),
-                        // ── 집 관련 체크리스트 링크 ──────────────────────
-                        Container(
-                          margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(10),
-                            onTap: () => context.push(
-                              '/checklist-settings?placeId=${p.id}&type=${Uri.encodeComponent('외출')}',
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              child: Row(
-                                children: [
-                                  const Text('📋', style: TextStyle(fontSize: 16)),
-                                  const SizedBox(width: 10),
-                                  const Expanded(
-                                    child: Text(
-                                      '집 체크리스트 설정',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF475569),
-                                      ),
-                                    ),
+                        // ── 체크리스트 2개 링크 (나갈때 / 들어올때) ──
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _checklistButton(
+                                  context,
+                                  icon: '🚪',
+                                  label: '집 나갈 때',
+                                  onTap: () => context.push(
+                                    '/checklist-settings?placeId=${p.id}&type=${Uri.encodeComponent('나갈때')}',
                                   ),
-                                  const Icon(Icons.chevron_right, size: 18, color: Color(0xFF94A3B8)),
-                                ],
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _checklistButton(
+                                  context,
+                                  icon: '🏠',
+                                  label: '집 들어올 때',
+                                  onTap: () => context.push(
+                                    '/checklist-settings?placeId=${p.id}&type=${Uri.encodeComponent('들어올때')}',
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -797,6 +851,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: () async {
+                await GeofenceServiceWrapper().startMonitoringActivePlace();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('지오펜스 서비스를 재시작했어요')),
+                  );
+                  final logs = await GeofenceLog.getAll();
+                  setState(() => _geoLogs = logs);
+                }
+              },
+              icon: const Icon(Icons.location_on_outlined, size: 16),
+              label: const Text('지오펜스 재시작'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+                foregroundColor: NeomeDesignSystem.textSub,
+                side: BorderSide(color: Colors.grey.shade300),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () async {
                 await DailyNotifGuard.resetCooldown();
                 await NotificationService().showDeparturePrompt();
                 if (mounted) {
@@ -819,6 +894,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     )); // PopScope
+  }
+
+  /// 장소 카드 내 체크리스트 링크 버튼 (나갈때/들어올때)
+  Widget _checklistButton(
+    BuildContext context, {
+    required String icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 15)),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF475569),
+                ),
+              ),
+            ),
+            const Icon(Icons.chevron_right, size: 16, color: Color(0xFF94A3B8)),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildSectionHeader(String title) {

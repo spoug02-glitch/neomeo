@@ -80,7 +80,11 @@ Future<void> _onGeofenceStatusChanged(
       debugPrint('[GeoTask-R] exit ignored (startup grace)');
       await GeofenceLog.add('[R] exit ignored (startup grace)');
     }
+  } else if (id.endsWith(_kOuterSuffix) && status == GeofenceStatus.enter) {
+    // 80m 반경 진입 시 귀가 처리 + enter trigger 알림
+    _handleReturnHome();
   } else if (id.endsWith(_kInnerSuffix) && status == GeofenceStatus.enter) {
+    // 60m 내부 진입 — outer enter가 이미 atHome으로 전환했을 경우 중복 알림 방지
     _handleReturnHome();
   }
 }
@@ -113,14 +117,17 @@ void _handleReturnHome() {
   _state = _DepState.atHome;
   debugPrint('[GeoTask-R] → atHome (was=$was)');
   GeofenceLog.add('[R] → atHome (was=$was)');
-  _checkAndSendArrivalNotif(); // fire-and-forget
+  // 실제 귀가(atHome이 아닌 상태에서 전환) 시에만 알림 — 중복 방지
+  if (was != _DepState.atHome) {
+    _checkAndSendArrivalNotif(); // fire-and-forget
+  }
 }
 
 Future<void> _checkAndSendArrivalNotif() async {
   final place = await PrefsService.getActivePlace();
   if (place == null) return;
-  final trigger = await PrefsService.getChecklistTrigger(place.id);
-  if (trigger == 'enter') {
+  final triggers = await PrefsService.getChecklistTriggers(place.id);
+  if (triggers.contains('enter')) {
     await NotificationService().showArrivalPrompt();
     await GeofenceLog.add('[R] → 귀가 알림 발송 (trigger=enter)');
   }
@@ -258,24 +265,24 @@ class GeofenceTaskHandler extends TaskHandler {
         }
       }
       // notified: 귀가 때까지 대기
-    } else if (dist <= _kResetRadius) {
+    } else if (dist <= _kDepartureRadius) {
+      // 80m 이내 진입 시 귀가 처리 (사용자 요청: 80m 안으로 들어올 때)
       if (state != 'atHome') {
         await prefs.setString(_kStateKey, 'atHome');
         await prefs.remove(_kPendingSinceMs);
-        debugPrint('[GeoTask-D] → atHome (귀가 확인)');
+        debugPrint('[GeoTask-D] → atHome (귀가 확인 dist=${distStr}m)');
         await GeofenceLog.add('[D] → atHome dist=${distStr}m');
         // 귀가 알림 (enter trigger 설정 시)
-        final place = await PrefsService.getActivePlace();
-        if (place != null) {
-          final trigger = await PrefsService.getChecklistTrigger(place.id);
-          if (trigger == 'enter') {
+        final activePlace = await PrefsService.getActivePlace();
+        if (activePlace != null) {
+          final triggers = await PrefsService.getChecklistTriggers(activePlace.id);
+          if (triggers.contains('enter')) {
             await NotificationService().showArrivalPrompt();
             await GeofenceLog.add('[D] → 귀가 알림 발송 (trigger=enter)');
           }
         }
       }
     }
-    // 60~80m: hysteresis zone
   }
 
   // ── onDestroy ──────────────────────────────────────────────────────────────
@@ -368,7 +375,9 @@ class GeofenceServiceWrapper {
   /// 모니터링 시작 — 포그라운드 서비스 시작만 담당
   /// geofencing_api 초기화는 TaskHandler.onStart()에서 처리 (release 모드)
   Future<void> startMonitoring(double lat, double lon, String placeId) async {
-    if (_running) await stopMonitoring();
+    if (_running || await FlutterForegroundTask.isRunningService) {
+      await stopMonitoring();
+    }
 
     // SharedPreferences 상태 초기화
     final prefs = await SharedPreferences.getInstance();

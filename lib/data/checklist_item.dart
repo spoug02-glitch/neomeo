@@ -17,14 +17,19 @@ class ChecklistItem {
 
 // Default items per outing type, split by category
 Map<String, List<String>> defaultItemsFor(String outingType) {
-  // UT MVP: 등교 전용 기본 항목
   const Map<String, List<String>> itemsMap = {
-    '등교': ['보조배터리', '가방', '노트북'],
-    '외출': ['지갑', '열쇠'],
+    '등교':    ['보조배터리', '가방', '노트북'],
+    '외출':    ['지갑', '열쇠'],
+    '나갈때':  ['지갑', '열쇠', '휴대폰'],
+    '들어올때': ['손 씻기'],
+  };
+
+  const Map<String, List<String>> actionsMap = {
+    '들어올때': ['짐 정리하기'],
   };
 
   return {
     '준비물': itemsMap[outingType] ?? ['지갑', '열쇠'],
-    '행동': ['불 끄기'],
+    '행동': actionsMap[outingType] ?? ['불 끄기'],
   };
 }

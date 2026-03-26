@@ -147,7 +147,41 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
 
     try {
-      final location = await FlLocation.getLocation(accuracy: LocationAccuracy.high);
+      // GPS 서비스 활성화 확인 — 꺼져 있으면 안내
+      final serviceEnabled = await FlLocation.isLocationServicesEnabled;
+      if (!serviceEnabled) {
+        if (!mounted) return;
+        if (inForm) {
+          setState(() => _isFetchingAddress = false);
+        } else {
+          setState(() => _locationMode = _LocationMode.form);
+        }
+        _showSnack('위치 서비스(GPS)가 꺼져 있어요. 설정에서 켜주세요.');
+        return;
+      }
+
+      // 위치 권한 확인
+      var locPermission = await FlLocation.checkLocationPermission();
+      if (locPermission == LocationPermission.denied ||
+          locPermission == LocationPermission.deniedForever) {
+        locPermission = await FlLocation.requestLocationPermission();
+        if (locPermission == LocationPermission.denied ||
+            locPermission == LocationPermission.deniedForever) {
+          if (!mounted) return;
+          if (inForm) {
+            setState(() => _isFetchingAddress = false);
+          } else {
+            setState(() => _locationMode = _LocationMode.form);
+          }
+          _showSnack('위치 권한이 필요해요. 설정에서 허용해주세요.');
+          return;
+        }
+      }
+
+      final location = await FlLocation.getLocation(
+        accuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
+      );
 
       if (!mounted) return;
       _latCtrl.text = location.latitude.toStringAsFixed(6);

@@ -68,18 +68,9 @@ class NeomeBottomNav extends StatelessWidget {
         currentIndex: currentIndex,
         onTap: (i) {
           if (i == 0) context.go('/home');
-          if (i == 1) context.go('/settings');
-          if (i == 2) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('달력 기능은 추후 사용 가능합니다 🗓'),
-                duration: const Duration(seconds: 2),
-                behavior: SnackBarBehavior.floating,
-                margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            );
-          }
+          if (i == 1) context.go('/list');
+          if (i == 2) context.go('/calendar');
+          if (i == 3) context.go('/settings');
         },
         backgroundColor: Colors.white,
         selectedItemColor: NeomeDesignSystem.textMain,
@@ -90,8 +81,9 @@ class NeomeBottomNav extends StatelessWidget {
         unselectedLabelStyle: const TextStyle(fontSize: 12),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: '홈'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), activeIcon: Icon(Icons.settings), label: '설정'),
+          BottomNavigationBarItem(icon: Icon(Icons.checklist_outlined), activeIcon: Icon(Icons.checklist), label: '리스트'),
           BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), activeIcon: Icon(Icons.calendar_month), label: '달력'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), activeIcon: Icon(Icons.settings), label: '설정'),
         ],
       ),
     );

@@ -98,7 +98,7 @@ class NotificationService {
       '집을 나가는 것 같아요',
       '외출 전에 체크리스트를 확인해봐요',
       const NotificationDetails(android: androidDetails),
-      payload: 'neomeo://checklist?type=%EC%99%B8%EC%B6%9C', // 외출
+      payload: 'neomeo://checklist?type=%EB%82%98%EA%B0%88%EB%95%8C', // 나갈때
     );
   }
 
@@ -117,9 +117,9 @@ class NotificationService {
     await _plugin.show(
       1,
       '집에 도착한 것 같아요',
-      '오늘 외출은 어땠나요? 체크리스트를 확인해봐요.',
+      '집 들어올 때 체크리스트를 확인해봐요.',
       const NotificationDetails(android: androidDetails),
-      payload: 'neomeo://checklist?type=%EC%99%B8%EC%B6%9C', // 외출
+      payload: 'neomeo://checklist?type=%EB%93%A4%EC%96%B4%EC%98%AC%EB%95%8C', // 들어올때
     );
   }
 }
