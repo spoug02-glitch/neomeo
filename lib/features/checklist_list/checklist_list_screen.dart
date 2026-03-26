@@ -117,7 +117,9 @@ class _ChecklistListScreenState extends State<ChecklistListScreen> {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
-          children: chips.map(((mode, label)) {
+          children: chips.map((chip) {
+            final mode = chip.$1;
+            final label = chip.$2;
             final selected = _filter == mode;
             return Padding(
               padding: const EdgeInsets.only(right: 8),

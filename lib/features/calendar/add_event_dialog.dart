@@ -479,7 +479,9 @@ class _AddEventSheetState extends State<_AddEventSheet> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: opts.map(((t, label)) {
+          children: opts.map((opt) {
+            final t = opt.$1;
+            final label = opt.$2;
             final sel = _repeatType == t;
             return GestureDetector(
               onTap: () => setState(() {
