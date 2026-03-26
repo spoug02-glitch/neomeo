@@ -39,7 +39,8 @@
       "Bash(curl -s http://localhost:5174/)",
       "Bash(pkill -f \"vite\")",
       "Bash(gh auth:*)",
-      "Bash(find /mnt/c/Users/fkfkf/Documents -name *.dart)"
+      "Bash(find /mnt/c/Users/fkfkf/Documents -name *.dart)",
+      "Bash(grep -r static.*isRunning /mnt/c/Users/fkfkf/Documents/neome_app/.pub-cache/hosted/pub.dev/flutter_foreground_task*/lib/)"
     ]
   }
 }
